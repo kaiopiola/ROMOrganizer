@@ -8,6 +8,7 @@ import { detectHeader, type HeaderDetection } from '../rom/header.ts'
 import { parseRomName, type ParsedRomName } from '../naming/parse-name.ts'
 import { buildFileName, buildRelativePath, type TemplateTokens } from '../naming/template.ts'
 import type { SystemRulePack } from '../systems/types.ts'
+import type { CacheKey, HashCache } from './hash-cache.ts'
 
 /**
  * Como o arquivo foi identificado. A interface mostra isto por linha: a diferença entre
@@ -60,6 +61,8 @@ export interface IdentifyOptions {
    * Ausente significa: usar o nome canônico do DAT, ou o template padrão do sistema.
    */
   template?: string
+  /** Evita reler arquivos que já foram hasheados e não mudaram desde então. */
+  hashCache?: HashCache
 }
 
 /** Quantos bytes ler do início para detectar header e byte order. */
@@ -235,6 +238,7 @@ async function identifyContent(
   system: SystemRulePack,
   index: DatIndex,
   contentSize: number,
+  cacheEntry?: { cache: HashCache; key: CacheKey },
 ): Promise<{
   variants: RomHashVariants
   header: HeaderDetection
@@ -244,14 +248,24 @@ async function identifyContent(
   hashes: RomHashes
   matches: IndexMatch[]
 }> {
+  const cached = cacheEntry?.cache.get(cacheEntry.key)
+
+  // Header e byte order saem dos primeiros bytes: baratos mesmo com cache, e mantê-los fora
+  // dele evita ter que versionar as regras de detecção junto dos hashes.
   const probe = await readProbeFrom(chunks())
   const header = detectHeader(system.header, probe, contentSize)
   const byteOrder = detectByteOrder(system, probe)
 
-  const variants = await hashChunkVariants(chunks(), {
-    headerOffset: header.offset,
-    swapSize: byteOrder.swapSize,
-  })
+  const variants =
+    cached ??
+    (await hashChunkVariants(chunks(), {
+      headerOffset: header.offset,
+      swapSize: byteOrder.swapSize,
+    }))
+
+  if (cached === undefined && cacheEntry !== undefined) {
+    cacheEntry.cache.set(cacheEntry.key, variants)
+  }
 
   const attempts: [IdentificationMethod, RomHashes][] = [['hash', variants.full]]
   if (variants.stripped) attempts.push(['hash-headerless', variants.stripped])
@@ -291,13 +305,22 @@ export async function identifyFile(
   const fileName = basename(filePath)
   const handle = await open(filePath, 'r')
   let size: number
+  let mtimeMs: number
   try {
-    ;({ size } = await handle.stat())
+    ;({ size, mtimeMs } = await handle.stat())
   } finally {
     await handle.close()
   }
 
-  const outcome = await identifyContent(() => fileChunks(filePath), system, index, size)
+  const outcome = await identifyContent(
+    () => fileChunks(filePath),
+    system,
+    index,
+    size,
+    options.hashCache === undefined
+      ? undefined
+      : { cache: options.hashCache, key: { path: filePath, size, mtimeMs } },
+  )
   const parsedName = parseRomName(fileName)
 
   return buildResult(
@@ -342,6 +365,16 @@ export async function identifyZip(
     accepted.has(extname(entry.name).replace(/^\./, '').toLowerCase()),
   )
 
+  // O mtime do container serve de fingerprint para tudo que está dentro: reescrever uma
+  // entrada implica reescrever o zip.
+  const handle = await open(zipPath, 'r')
+  let zipMtimeMs: number
+  try {
+    ;({ mtimeMs: zipMtimeMs } = await handle.stat())
+  } finally {
+    await handle.close()
+  }
+
   const results: Identification[] = []
 
   for (const entry of romEntries) {
@@ -368,6 +401,17 @@ export async function identifyZip(
       system,
       index,
       entry.size,
+      options.hashCache === undefined
+        ? undefined
+        : {
+            cache: options.hashCache,
+            key: {
+              path: zipPath,
+              entry: entry.name,
+              size: entry.size,
+              mtimeMs: zipMtimeMs,
+            },
+          },
     )
 
     results.push(

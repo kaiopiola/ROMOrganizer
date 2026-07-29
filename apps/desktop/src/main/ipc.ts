@@ -5,6 +5,7 @@ import type { IpcMainInvokeEvent } from 'electron'
 import {
   DatIndex,
   executePlan,
+  HashCache,
   planRenames,
   readJournal,
   reproposeName,
@@ -15,7 +16,13 @@ import {
 } from '@romorg/core'
 import type { DatCache } from './dat-cache.ts'
 import { loadLocalDat } from './dat-cache.ts'
-import { journalDirFor, type Library, type LibraryStore } from './libraries.ts'
+import {
+  hashCachePathFor,
+  journalDirFor,
+  type Library,
+  type LibraryChanges,
+  type LibraryStore,
+} from './libraries.ts'
 import type {
   ApplyResultDto,
   JournalSummary,
@@ -118,10 +125,29 @@ export function registerIpc(
     return state
   }
 
-  /** Vazio ou só espaços significa: sem template customizado. */
-  function templateOf(options: PlanOptionsDto): string | undefined {
-    const trimmed = options.template.trim()
+  /** Vazio ou só espaços significa: recurso desligado. */
+  function optional(value: string): string | undefined {
+    const trimmed = value.trim()
     return trimmed === '' ? undefined : trimmed
+  }
+
+  /** Traduz as opções da interface para o que o planner entende. */
+  function planOptionsFor(
+    library: Library,
+    options: PlanOptionsDto,
+    identifications: Identification[],
+  ) {
+    const template = optional(options.template)
+    const quarantineDirectory = optional(options.quarantineDirectory)
+
+    return {
+      includeFilenameMatches: options.includeFilenameMatches,
+      allowAmbiguous: options.allowAmbiguous,
+      existingPaths: identifications.map((identification) => identification.filePath),
+      rootDirectory: library.directory,
+      ...(template !== undefined && { template }),
+      ...(quarantineDirectory !== undefined && { quarantineDirectory }),
+    }
   }
 
   function identificationsOf(state: LibraryState): Identification[] {
@@ -152,10 +178,8 @@ export function registerIpc(
     return libraries.add(systemId, result.filePaths[0])
   })
 
-  ipcMain.handle(
-    'libraries:update',
-    (_event, id: string, changes: { recursive?: boolean; template?: string }) =>
-      libraries.update(id, changes),
+  ipcMain.handle('libraries:update', (_event, id: string, changes: LibraryChanges) =>
+    libraries.update(id, changes),
   )
 
   ipcMain.handle('libraries:remove', async (_event, id: string) => {
@@ -185,6 +209,9 @@ export function registerIpc(
       state.scanController = controller
 
       const index = new DatIndex()
+      const cachePath = hashCachePathFor(library)
+      const hashCache = await HashCache.load(cachePath)
+
       try {
         if (options.useLibretro) {
           for (const dat of await datCache.getFor(system)) index.importDat(dat)
@@ -195,6 +222,7 @@ export function registerIpc(
 
         const summary = await scanDirectory(library.directory, system, index, {
           recursive: library.recursive,
+          hashCache,
           signal: controller.signal,
           onProgress: (done, total, current) => {
             const progress: ScanProgress = {
@@ -211,6 +239,10 @@ export function registerIpc(
           summary.results.map((identification) => [rowIdOf(identification), identification]),
         )
         state.order = summary.results.map(rowIdOf)
+
+        // Cada rename cria uma chave nova; sem podar, o cache cresceria a cada aplicação.
+        hashCache.retainOnly(summary.results.map((identification) => identification.filePath))
+        await hashCache.save(cachePath)
 
         const dto: ScanSummaryDto = {
           libraryId,
@@ -237,21 +269,21 @@ export function registerIpc(
     const library = await requireLibrary(libraryId)
     const state = stateOf(libraryId)
     const identifications = identificationsOf(state)
-    const template = templateOf(options)
+    const template = optional(options.template)
 
-    const plan = planRenames(identifications, {
-      includeFilenameMatches: options.includeFilenameMatches,
-      allowAmbiguous: options.allowAmbiguous,
-      existingPaths: identifications.map((identification) => identification.filePath),
-      ...(template !== undefined && { template }),
-      rootDirectory: library.directory,
-    })
+    const plan = planRenames(identifications, planOptionsFor(library, options, identifications))
+    const quarantineTargets = new Set(
+      plan.operations
+        .filter((operation) => operation.identification.proposedName === null)
+        .map((operation) => operation.to),
+    )
 
     const dto: PlanDto = {
       operations: plan.operations.map((operation) => ({
         id: rowIdOf(operation.identification),
         from: operation.from,
         to: operation.to,
+        quarantine: quarantineTargets.has(operation.to),
       })),
       skipped: plan.skipped.map((entry) => ({
         id: rowIdOf(entry.identification),
@@ -287,17 +319,8 @@ export function registerIpc(
     ): Promise<ApplyResultDto> => {
       const library = await requireLibrary(libraryId)
       const state = stateOf(libraryId)
-      const template = templateOf(options)
-
       const identifications = identificationsOf(state)
-
-      const plan = planRenames(identifications, {
-        includeFilenameMatches: options.includeFilenameMatches,
-        allowAmbiguous: options.allowAmbiguous,
-        ...(template !== undefined && { template }),
-        existingPaths: identifications.map((identification) => identification.filePath),
-        rootDirectory: library.directory,
-      })
+      const plan = planRenames(identifications, planOptionsFor(library, options, identifications))
 
       const selected = selectedIds === null ? null : new Set(selectedIds)
       const operations =

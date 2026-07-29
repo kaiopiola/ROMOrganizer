@@ -63,6 +63,7 @@ export {
   type IdentificationMethod,
 } from './identify/identify.ts'
 export { scanDirectory, type ScanOptions, type ScanSummary } from './identify/scan.ts'
+export { HashCache, type CacheKey } from './identify/hash-cache.ts'
 
 export {
   isCaseOnlyRename,

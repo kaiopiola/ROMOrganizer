@@ -68,7 +68,11 @@ export function App() {
   }, [activeId, refreshJournals])
 
   const template = active?.template ?? ''
-  const planOptions = { includeFilenameMatches, allowAmbiguous, template }
+  const quarantineDirectory = active?.quarantineDirectory ?? ''
+  const planOptions = { includeFilenameMatches, allowAmbiguous, template, quarantineDirectory }
+
+  /** Ids escolhidos para aplicar. `null` significa "todos do plano". */
+  const [selectedIds, setSelectedIds] = useState<Set<string> | null>(null)
 
   /**
    * Trocar o padrão de nomes não descarta o scan.
@@ -77,6 +81,12 @@ export function App() {
    * main recalcula os dois — linhas e plano — e devolve juntos, para a tabela nunca mostrar
    * um nome diferente do que o plano fará.
    */
+  async function updateQuarantine(next: string): Promise<void> {
+    if (active === null) return
+    await window.romorg.libraries.update(active.id, { quarantineDirectory: next })
+    setLibraries(await window.romorg.libraries.list())
+  }
+
   async function updateTemplate(next: string): Promise<void> {
     if (active === null) return
     await window.romorg.libraries.update(active.id, { template: next })
@@ -106,6 +116,9 @@ export function App() {
     setProgress(null)
   }
 
+  // Extraído para o ESLint conseguir checar a dependência estaticamente.
+  const hasScan = scan !== null
+
   // O plano é recalculado no main a cada mudança de opção — a interface nunca decide sozinha
   // o que vai para o disco.
   useEffect(() => {
@@ -113,11 +126,14 @@ export function App() {
     void window.romorg.plan.build(active.id, planOptions).then((result) => {
       setPlan(result.plan)
       setScan((current) => (current === null ? null : { ...current, rows: result.rows }))
+      // Um plano novo pode não conter os ids escolhidos antes; voltar para "todos" é o
+      // comportamento seguro — o usuário vê a contagem e decide de novo.
+      setSelectedIds(null)
     })
     // `scan` fora das dependências de propósito: este efeito o atualiza, e incluí-lo
     // criaria um laço infinito.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [includeFilenameMatches, allowAmbiguous, template, active?.id, scan === null])
+  }, [includeFilenameMatches, allowAmbiguous, template, quarantineDirectory, activeId, hasScan])
 
   async function applyPlan(): Promise<void> {
     if (active === null || plan === null || plan.operations.length === 0) return
@@ -126,7 +142,11 @@ export function App() {
     setBusy('applying')
     setApplyProgress(null)
     await withErrorHandling(async () => {
-      const result: ApplyResultDto = await window.romorg.plan.apply(active.id, planOptions, null)
+      const result: ApplyResultDto = await window.romorg.plan.apply(
+        active.id,
+        planOptions,
+        selectedIds === null ? null : [...selectedIds],
+      )
       setNotice(result.cancelled ? t.appliedPartial(result.applied) : t.applied(result.applied))
       if (result.failed.length > 0) {
         setError(result.failed.map((failure) => failure.reason).join('\n'))
@@ -290,6 +310,10 @@ export function App() {
                 allowAmbiguous={allowAmbiguous}
                 onToggleFilenameMatches={setIncludeFilenameMatches}
                 onToggleAmbiguous={setAllowAmbiguous}
+                quarantineDirectory={quarantineDirectory}
+                onQuarantineChange={(next) => void updateQuarantine(next)}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
                 onApply={() => void applyPlan()}
               />
             )}

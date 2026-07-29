@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { SystemRulePack } from '@romorg/core'
-import type { Library } from '../main/libraries.ts'
+import type { Library, LibraryChanges } from '../main/libraries.ts'
 import type {
   ApplyResultDto,
   JournalSummary,
@@ -29,10 +29,8 @@ const api = {
     list: (): Promise<Library[]> => ipcRenderer.invoke('libraries:list'),
     choose: (systemId: string): Promise<Library | null> =>
       ipcRenderer.invoke('libraries:choose', systemId),
-    update: (
-      id: string,
-      changes: { recursive?: boolean; template?: string },
-    ): Promise<Library | undefined> => ipcRenderer.invoke('libraries:update', id, changes),
+    update: (id: string, changes: LibraryChanges): Promise<Library | undefined> =>
+      ipcRenderer.invoke('libraries:update', id, changes),
     remove: (id: string): Promise<void> => ipcRenderer.invoke('libraries:remove', id),
     reveal: (id: string): Promise<void> => ipcRenderer.invoke('libraries:reveal', id),
   },

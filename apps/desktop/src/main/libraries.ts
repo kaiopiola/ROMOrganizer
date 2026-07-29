@@ -13,7 +13,12 @@ export interface Library {
   recursive: boolean
   /** Padrão de nomes desta biblioteca. Vazio significa usar o do rule pack. */
   template?: string
+  /** Pasta de quarentena, relativa à raiz. Vazio ou ausente desliga o recurso. */
+  quarantineDirectory?: string
 }
+
+/** Campos editáveis de uma biblioteca. */
+export type LibraryChanges = Partial<Omit<Library, 'id'>>
 
 interface LibrariesFile {
   version: 1
@@ -82,7 +87,7 @@ export class LibraryStore {
     return library
   }
 
-  async update(id: string, changes: Partial<Omit<Library, 'id'>>): Promise<Library | undefined> {
+  async update(id: string, changes: LibraryChanges): Promise<Library | undefined> {
     const data = await this.load()
     const updated = data.libraries.map((library) =>
       library.id === id ? { ...library, ...changes } : library,
@@ -98,6 +103,11 @@ export class LibraryStore {
       libraries: data.libraries.filter((library) => library.id !== id),
     })
   }
+}
+
+/** Cache e journal ficam junto da coleção: quem move a pasta leva os dois consigo. */
+export function hashCachePathFor(library: Library): string {
+  return join(library.directory, '.romorg', 'hashes.json')
 }
 
 /** O journal fica junto da coleção: quem move a pasta leva o histórico de undo junto. */

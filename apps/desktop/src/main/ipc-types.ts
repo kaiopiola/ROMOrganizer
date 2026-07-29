@@ -35,6 +35,8 @@ export interface PlanRow {
   id: string
   from: string
   to: string
+  /** Verdadeiro quando a operação é mover para a quarentena, não renomear. */
+  quarantine: boolean
 }
 
 export interface SkippedRow {
@@ -54,6 +56,8 @@ export interface PlanOptionsDto {
   allowAmbiguous: boolean
   /** Vazio significa: usar o padrão do rule pack, ou o nome canônico do DAT. */
   template: string
+  /** Pasta para onde vão os não identificados. Vazio desliga o recurso. */
+  quarantineDirectory: string
 }
 
 /**

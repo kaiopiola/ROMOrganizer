@@ -66,6 +66,14 @@ export interface PlanOptions {
    * sempre a partir da raiz.
    */
   rootDirectory?: string
+  /**
+   * Pasta, relativa à raiz, para onde vão os arquivos que não foram identificados.
+   *
+   * Serve para separar o que precisa de atenção manual do que já está resolvido, sem apagar
+   * nada — a ferramenta nunca deleta. Requer `rootDirectory`; sem ela não há a partir de onde
+   * medir, e mover ficaria dependente de onde o arquivo estava.
+   */
+  quarantineDirectory?: string
 }
 
 /** Duas rotas para o mesmo arquivo no mesmo diretório, ignorando caixa. */
@@ -88,6 +96,23 @@ function baseDirFor(
 ): string {
   const describesStructure = proposedName.includes('/')
   return describesStructure && rootDirectory !== undefined ? rootDirectory : dirname(filePath)
+}
+
+/**
+ * Destino de quarentena de um arquivo não identificado, ou `null` quando não há quarentena.
+ *
+ * O nome é preservado: o arquivo muda de lugar, não de identidade. Quem for olhar depois
+ * precisa reconhecer o que estava lá.
+ */
+function quarantineTargetFor(identification: Identification, options: PlanOptions): string | null {
+  const { quarantineDirectory, rootDirectory } = options
+  if (quarantineDirectory === undefined || rootDirectory === undefined) return null
+
+  // Conteúdo dentro de zip não é movível sozinho — mover o container levaria junto as ROMs
+  // que porventura foram identificadas.
+  if (identification.archiveEntry !== undefined) return null
+
+  return join(rootDirectory, quarantineDirectory, identification.fileName)
 }
 
 /**
@@ -117,7 +142,14 @@ export function planRenames(
     const { proposedName, filePath } = identification
 
     if (proposedName === null) {
-      skipped.push({ identification, reason: 'no-proposal' })
+      const quarantined = quarantineTargetFor(identification, options)
+      if (quarantined === null) {
+        skipped.push({ identification, reason: 'no-proposal' })
+      } else if (quarantined === filePath) {
+        skipped.push({ identification, reason: 'already-named' })
+      } else {
+        candidates.push({ from: filePath, to: quarantined, identification })
+      }
       continue
     }
 

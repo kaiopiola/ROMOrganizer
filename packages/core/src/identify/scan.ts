@@ -25,6 +25,9 @@ export interface ScanSummary {
 /** Lixo que convive com ROMs em pastas de coleção e não deve nem aparecer no relatório. */
 const IGNORED_NAMES = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini'])
 
+/** Metadados do próprio app: cache e journal não são conteúdo da coleção. */
+const IGNORED_DIRECTORIES = new Set(['.romorg'])
+
 async function collectFiles(
   directory: string,
   system: SystemRulePack,
@@ -40,7 +43,9 @@ async function collectFiles(
     const fullPath = join(directory, entry.name)
 
     if (entry.isDirectory()) {
-      if (recursive) found.push(...(await collectFiles(fullPath, system, recursive)))
+      if (recursive && !IGNORED_DIRECTORIES.has(entry.name)) {
+        found.push(...(await collectFiles(fullPath, system, recursive)))
+      }
       continue
     }
     if (!entry.isFile() || IGNORED_NAMES.has(entry.name)) continue

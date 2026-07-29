@@ -208,6 +208,71 @@ describe('planRenames — subpastas contam a partir da raiz da biblioteca', () =
   })
 })
 
+describe('planRenames — quarentena', () => {
+  const unknown = identification('dump_9999.nes', null, { method: 'unidentified' })
+
+  it('move o não identificado para a pasta de quarentena', () => {
+    const plan = planRenames([unknown], {
+      rootDirectory: DIR,
+      quarantineDirectory: '_nao-identificados',
+    })
+
+    expect(plan.operations[0]?.to).toBe(join(DIR, '_nao-identificados', 'dump_9999.nes'))
+  })
+
+  it('preserva o nome — o arquivo muda de lugar, não de identidade', () => {
+    const plan = planRenames([unknown], {
+      rootDirectory: DIR,
+      quarantineDirectory: 'quarentena',
+    })
+
+    expect(plan.operations[0]?.to.endsWith('dump_9999.nes')).toBe(true)
+  })
+
+  it('sem quarentena configurada, apenas fica de fora do plano', () => {
+    const plan = planRenames([unknown], { rootDirectory: DIR })
+    expect(plan.operations).toEqual([])
+    expect(plan.skipped[0]?.reason).toBe('no-proposal')
+  })
+
+  it('não mexe em quem já está na quarentena', () => {
+    const alreadyThere = {
+      ...unknown,
+      filePath: join(DIR, 'quarentena', 'dump_9999.nes'),
+    }
+
+    const plan = planRenames([alreadyThere], {
+      rootDirectory: DIR,
+      quarantineDirectory: 'quarentena',
+    })
+
+    expect(plan.operations).toEqual([])
+    expect(plan.skipped[0]?.reason).toBe('already-named')
+  })
+
+  it('não põe em quarentena o que foi identificado', () => {
+    const plan = planRenames([identification('x.nes', 'Jogo (USA).nes')], {
+      rootDirectory: DIR,
+      quarantineDirectory: 'quarentena',
+    })
+
+    expect(plan.operations[0]?.to).toBe(join(DIR, 'Jogo (USA).nes'))
+  })
+
+  it('não move um zip por causa de uma entrada não identificada dentro dele', () => {
+    // Mover o container levaria junto as ROMs que porventura foram reconhecidas.
+    const insideZip = { ...unknown, archiveEntry: 'dump.nes' }
+
+    const plan = planRenames([insideZip], {
+      rootDirectory: DIR,
+      quarantineDirectory: 'quarentena',
+    })
+
+    expect(plan.operations).toEqual([])
+    expect(plan.skipped[0]?.reason).toBe('no-proposal')
+  })
+})
+
 describe('planRenames — conflitos', () => {
   it('pula quando o destino já existe em disco', () => {
     const plan = planRenames([identification('x.nes', 'Jogo (USA).nes')], {

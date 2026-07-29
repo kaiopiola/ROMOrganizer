@@ -59,6 +59,13 @@ const ptBR = {
   toRename: (count: number) => `${count} a renomear`,
   skippedTitle: 'Fora do plano',
   apply: 'Aplicar',
+  applySelected: (count: number) => `Aplicar (${count})`,
+  selectedOf: (selected: number, total: number) =>
+    `${selected} de ${total} selecionado${selected === 1 ? '' : 's'}`,
+  quarantine: 'Mover não identificados para',
+  quarantineHint: 'Nada é apagado — os arquivos só saem do meio dos que já estão resolvidos.',
+  quarantineTag: 'quarentena',
+
   applyConfirm: (count: number) =>
     `Renomear ${count} arquivo${count === 1 ? '' : 's'}? Dá para desfazer depois.`,
   applying: 'Aplicando…',
@@ -143,6 +150,12 @@ const en: Dictionary = {
   toRename: (count: number) => `${count} to rename`,
   skippedTitle: 'Left out',
   apply: 'Apply',
+  applySelected: (count: number) => `Apply (${count})`,
+  selectedOf: (selected: number, total: number) => `${selected} of ${total} selected`,
+  quarantine: 'Move unidentified files to',
+  quarantineHint: 'Nothing is deleted — the files just move out of the way of the resolved ones.',
+  quarantineTag: 'quarantine',
+
   applyConfirm: (count: number) =>
     `Rename ${count} file${count === 1 ? '' : 's'}? This can be undone.`,
   applying: 'Applying…',
