@@ -1,4 +1,6 @@
+import { execFile } from 'node:child_process'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { promisify } from 'node:util'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -101,6 +103,52 @@ describe('scanDirectory', () => {
     const summary = await scanDirectory(workDir, NES, index, { recursive: true })
     expect(summary.results.map((result) => result.fileName)).toEqual(['ok.nes'])
     expect(summary.failures).toEqual([])
+  })
+
+  it('varre .zip junto com as ROMs soltas', async () => {
+    const dump = pseudoRandomBytes(512, 41)
+    index.importDat({
+      name: 'Test DAT',
+      entries: [
+        {
+          gameName: 'Jogo Compactado (USA)',
+          romName: 'Jogo Compactado (USA).nes',
+          size: dump.length,
+          crc32: (await hashBytes(dump)).crc32,
+        },
+      ],
+    })
+
+    const stageDir = join(workDir, 'stage')
+    await mkdir(stageDir, { recursive: true })
+    await writeFile(join(stageDir, 'interno.nes'), dump)
+    await promisify(execFile)('zip', ['-q', '-r', '-X', join(workDir, 'coleção.zip'), '.'], {
+      cwd: stageDir,
+    })
+    await rm(stageDir, { recursive: true })
+    await writeFile(join(workDir, 'solta.nes'), pseudoRandomBytes(64, 43))
+
+    const { results } = await scanDirectory(workDir, NES, index)
+
+    expect(results).toHaveLength(2)
+    const zipado = results.find((result) => result.archiveEntry !== undefined)
+    expect(zipado?.proposedName).toBe('Jogo Compactado (USA).zip')
+    expect(zipado?.fromArchiveIndex).toBe(true)
+  })
+
+  it('um zip com duas ROMs rende dois resultados', async () => {
+    const stageDir = join(workDir, 'stage2')
+    await mkdir(stageDir, { recursive: true })
+    await writeFile(join(stageDir, 'a.nes'), pseudoRandomBytes(64, 47))
+    await writeFile(join(stageDir, 'b.nes'), pseudoRandomBytes(64, 53))
+    await promisify(execFile)('zip', ['-q', '-r', '-X', join(workDir, 'duplo.zip'), '.'], {
+      cwd: stageDir,
+    })
+    await rm(stageDir, { recursive: true })
+
+    const { results } = await scanDirectory(workDir, NES, index)
+    expect(results).toHaveLength(2)
+    expect(results.every((result) => result.fileName === 'duplo.zip')).toBe(true)
   })
 
   it('respeita o cancelamento', async () => {

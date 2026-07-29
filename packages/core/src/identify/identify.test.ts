@@ -1,8 +1,10 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { promisify } from 'node:util'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { identifyFile } from './identify.ts'
+import { identifyFile, identifyPath, identifyZip } from './identify.ts'
 import { DatIndex } from '../dat/index-db.ts'
 import { hashBytes } from '../hash/rom-hash.ts'
 import { inesHeader, pseudoRandomBytes } from '../rom/fixtures.ts'
@@ -183,6 +185,108 @@ describe('identifyFile — match por hash', () => {
 
     const result = await identifyFile(await writeRom('concordam.nes', dump), NES, index)
     expect(result.ambiguous).toBe(false)
+  })
+})
+
+describe('identifyZip', () => {
+  async function makeZip(zipName: string, files: Record<string, Uint8Array>): Promise<string> {
+    const stageDir = join(workDir, `stage-${zipName}`)
+    await mkdir(stageDir, { recursive: true })
+    for (const [name, content] of Object.entries(files)) {
+      await writeFile(join(stageDir, name), content)
+    }
+    const zipPath = join(workDir, zipName)
+    await promisify(execFile)('zip', ['-q', '-r', '-X', zipPath, '.'], { cwd: stageDir })
+    return zipPath
+  }
+
+  it('identifica pelo CRC que o zip já guarda, sem descomprimir', async () => {
+    const dump = pseudoRandomBytes(4096, 151)
+    index.importDat({
+      name: 'Test DAT',
+      entries: [
+        {
+          gameName: 'Jogo Zipado (USA)',
+          romName: 'Jogo Zipado (USA).nes',
+          size: dump.length,
+          crc32: (await hashBytes(dump)).crc32,
+        },
+      ],
+    })
+
+    const [result] = await identifyZip(await makeZip('rapido.zip', { 'x.nes': dump }), NES, index)
+
+    expect(result?.method).toBe('hash')
+    expect(result?.fromArchiveIndex).toBe(true)
+    // Nada foi descomprimido, então também não há hashes calculados.
+    expect(result?.hashes).toBeUndefined()
+    // O rename proposto é o do container, não o da entrada interna.
+    expect(result?.proposedName).toBe('Jogo Zipado (USA).zip')
+    expect(result?.archiveEntry).toBe('x.nes')
+  })
+
+  it('descomprime quando o atalho falha, e aí sim desconta o header', async () => {
+    const dump = pseudoRandomBytes(8192, 157)
+    index.importDat({
+      name: 'No-Intro NES',
+      entries: [
+        {
+          gameName: 'Jogo Headerado (Japan)',
+          romName: 'Jogo Headerado (Japan).nes',
+          size: dump.length,
+          crc32: (await hashBytes(dump)).crc32,
+        },
+      ],
+    })
+
+    // O CRC do zip é o do conteúdo COM header, que não está no DAT headerless.
+    const zipPath = await makeZip('lento.zip', {
+      'y.nes': concatBytes(inesHeader(), dump),
+    })
+    const [result] = await identifyZip(zipPath, NES, index)
+
+    expect(result?.fromArchiveIndex).toBe(false)
+    expect(result?.method).toBe('hash-headerless')
+    expect(result?.header).toEqual({ offset: 16, method: 'magic' })
+    expect(result?.proposedName).toBe('Jogo Headerado (Japan).zip')
+  })
+
+  it('ignora entradas que não são do sistema', async () => {
+    const zipPath = await makeZip('misto.zip', {
+      'rom.nes': pseudoRandomBytes(64, 163),
+      'leiame.txt': new TextEncoder().encode('nada a ver'),
+    })
+
+    const results = await identifyZip(zipPath, NES, index)
+    expect(results.map((result) => result.archiveEntry)).toEqual(['rom.nes'])
+  })
+
+  it('devolve um resultado por ROM quando o zip tem várias', async () => {
+    const zipPath = await makeZip('varias.zip', {
+      'a.nes': pseudoRandomBytes(64, 167),
+      'b.nes': pseudoRandomBytes(64, 173),
+    })
+
+    const results = await identifyZip(zipPath, NES, index)
+    expect(results).toHaveLength(2)
+  })
+
+  it('usa o nome da entrada interna no fallback, não o do zip', async () => {
+    const zipPath = await makeZip('container_sem_sentido.zip', {
+      'Jogo Interno (Europe).nes': pseudoRandomBytes(64, 179),
+    })
+
+    const [result] = await identifyZip(zipPath, NES, index)
+    expect(result?.method).toBe('filename')
+    expect(result?.parsedName.title).toBe('Jogo Interno')
+    expect(result?.proposedName).toBe('Jogo Interno (Europe).zip')
+  })
+})
+
+describe('identifyPath', () => {
+  it('despacha para o caminho certo conforme a extensão', async () => {
+    const solto = await writeRom('solto.nes', pseudoRandomBytes(64, 181))
+    expect(await identifyPath(solto, NES, index)).toHaveLength(1)
   })
 })
 

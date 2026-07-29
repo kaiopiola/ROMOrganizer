@@ -28,10 +28,17 @@ Guessing a ROM from its filename is exactly what makes other tools get it wrong.
 Nothing changes without your review: every batch goes through a **dry run**, and every execution
 writes a journal that makes it **undoable**.
 
+ROMs inside `.zip` are handled too — and usually without decompressing anything, since the zip
+format already stores the CRC32 of each entry's uncompressed content.
+
 ## Databases
 
-- **libretro-database** — fetched on demand by the app, versioned and updatable.
+- **libretro-database** — fetched on demand, versioned and updatable. Both the `no-intro` and
+  `headered` collections are pulled for systems that have one, which is what makes a `.nes`
+  match whether or not it carries a header.
 - **Manual import** of No-Intro / Redump DATs, for people who maintain exact sets.
+
+Both DAT dialects are supported: Logiqx XML (No-Intro) and clrmamepro (libretro-database).
 
 ## Development
 
@@ -57,7 +64,7 @@ Other commands:
 The CLI runs straight from source, no build step:
 
 ```bash
-node packages/cli/src/index.ts systems
+node packages/cli/src/index.ts scan ~/roms/snes --system snes --libretro
 ```
 
 ### Layout
@@ -82,7 +89,9 @@ test. See [CONTRIBUTING.md](CONTRIBUTING.md).
 - The tool operates on files **already on the user's disk**.
 - It does not download ROMs, does not search for them, does not index sources, and does not
   accept links to them.
-- The DATs it uses are **metadata** (name, hash, region) — never game content.
+- The DATs it uses are **metadata** (name, hash, region) — never game content. Those fetched
+  from [libretro-database](https://github.com/libretro/libretro-database) are licensed
+  CC BY-SA 4.0 and are downloaded on demand by the user, not redistributed with the app.
 - No ROM, BIOS, or proprietary header belongs in this repository, **including test fixtures**,
   which are generated synthetically.
 - Issues and pull requests asking for or offering ROMs are closed without discussion.

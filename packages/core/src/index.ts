@@ -19,6 +19,20 @@ export {
 } from './hash/rom-hash.ts'
 
 export { DatParseError, parseLogiqxDat, type DatEntry, type ParsedDat } from './dat/logiqx.ts'
+export { parseClrMameProDat } from './dat/clrmamepro.ts'
+export { detectDatFormat, parseDat, type DatFormat } from './dat/parse-dat.ts'
+export {
+  fetchLibretroDat,
+  fetchLibretroDatsFor,
+  libretroDatUrl,
+  libretroRefsFor,
+  LibretroFetchError,
+  type FetchOptions,
+  type FetchSystemResult,
+  type LibretroCollection,
+  type LibretroDatRef,
+} from './dat/libretro.ts'
+export { isZipPath, listZipEntries, openZipEntry, ZipError, type ZipEntry } from './archive/zip.ts'
 export {
   DatIndex,
   type IndexMatch,
@@ -38,6 +52,8 @@ export {
 
 export {
   identifyFile,
+  identifyPath,
+  identifyZip,
   type Identification,
   type IdentificationMethod,
 } from './identify/identify.ts'

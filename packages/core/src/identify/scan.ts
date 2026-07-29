@@ -2,7 +2,7 @@ import { readdir } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import type { DatIndex } from '../dat/index-db.ts'
 import type { SystemRulePack } from '../systems/types.ts'
-import { identifyFile, type Identification } from './identify.ts'
+import { identifyPath, type Identification } from './identify.ts'
 
 export interface ScanOptions {
   /** Percorre subpastas. */
@@ -30,7 +30,9 @@ async function collectFiles(
   system: SystemRulePack,
   recursive: boolean,
 ): Promise<string[]> {
-  const accepted = new Set(system.extensions)
+  // `.zip` entra sempre: boa parte das coleções guarda a ROM compactada, e o que interessa
+  // é a extensão de dentro, não a do container.
+  const accepted = new Set([...system.extensions, 'zip'])
   const found: string[] = []
 
   const entries = await readdir(directory, { withFileTypes: true })
@@ -66,7 +68,8 @@ export async function scanDirectory(
   const files = await collectFiles(directory, system, options.recursive ?? false)
   const concurrency = Math.max(1, options.concurrency ?? 4)
 
-  const results: Identification[] = new Array<Identification>(files.length)
+  // Um zip pode conter mais de uma ROM, então cada caminho rende zero ou mais resultados.
+  const perFile: Identification[][] = new Array<Identification[]>(files.length)
   const failures: ScanSummary['failures'] = []
   let nextIndex = 0
   let done = 0
@@ -80,10 +83,12 @@ export async function scanDirectory(
 
       const filePath = files[current] as string
       try {
-        const identification = await identifyFile(filePath, system, index)
-        results[current] = identification
+        const identifications = await identifyPath(filePath, system, index)
+        perFile[current] = identifications
         done += 1
-        options.onProgress?.(done, files.length, identification)
+        for (const identification of identifications) {
+          options.onProgress?.(done, files.length, identification)
+        }
       } catch (cause) {
         failures.push({ filePath, reason: cause instanceof Error ? cause.message : String(cause) })
         done += 1
@@ -93,5 +98,5 @@ export async function scanDirectory(
 
   await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, () => worker()))
 
-  return { results: results.filter((result) => result !== undefined), failures }
+  return { results: perFile.filter((entry) => entry !== undefined).flat(), failures }
 }

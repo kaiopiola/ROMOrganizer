@@ -3,8 +3,9 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import {
   DatIndex,
+  fetchLibretroDatsFor,
   loadRulePacksFrom,
-  parseLogiqxDat,
+  parseDat,
   scanDirectory,
   SystemRegistry,
   type Identification,
@@ -40,6 +41,7 @@ interface ScanArgs {
   systemId: string
   datPaths: string[]
   recursive: boolean
+  libretro: boolean
 }
 
 function parseScanArgs(argv: string[]): ScanArgs | string {
@@ -47,6 +49,7 @@ function parseScanArgs(argv: string[]): ScanArgs | string {
   const datPaths: string[] = []
   let systemId: string | undefined
   let recursive = false
+  let libretro = false
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i] as string
@@ -55,6 +58,8 @@ function parseScanArgs(argv: string[]): ScanArgs | string {
     } else if (arg === '--dat' || arg === '-d') {
       const value = argv[++i]
       if (value !== undefined) datPaths.push(value)
+    } else if (arg === '--libretro' || arg === '-l') {
+      libretro = true
     } else if (arg === '--recursive' || arg === '-r') {
       recursive = true
     } else if (arg.startsWith('-')) {
@@ -68,7 +73,7 @@ function parseScanArgs(argv: string[]): ScanArgs | string {
   if (directory === undefined) return 'informe a pasta a escanear'
   if (systemId === undefined) return 'informe o sistema com --system (veja `romorg systems`)'
 
-  return { directory, systemId, datPaths, recursive }
+  return { directory, systemId, datPaths, recursive, libretro }
 }
 
 async function scan(argv: string[]): Promise<number> {
@@ -87,14 +92,27 @@ async function scan(argv: string[]): Promise<number> {
 
   const index = new DatIndex()
   try {
+    if (args.libretro) {
+      console.log('Baixando DATs do libretro-database…')
+      const { parsed, missing } = await fetchLibretroDatsFor(system)
+      for (const dat of parsed) {
+        console.log(`  ${dat.name} (${index.importDat(dat)} entradas)`)
+      }
+      for (const ref of missing) {
+        console.log(`  ${ref.name}: sem versão "${ref.collection}"`)
+      }
+    }
+
     for (const datPath of args.datPaths) {
-      const parsed = parseLogiqxDat(await readFile(datPath, 'utf8'))
+      const parsed = parseDat(await readFile(datPath, 'utf8'))
       const count = index.importDat(parsed)
       console.log(`DAT carregado: ${parsed.name} (${count} entradas)`)
     }
-    if (args.datPaths.length === 0) {
-      console.log('Nenhum DAT informado (--dat): a identificação usará só o nome do arquivo.\n')
+
+    if (!args.libretro && args.datPaths.length === 0) {
+      console.log('Sem DAT (use --libretro ou --dat): a identificação usará só o nome do arquivo.')
     }
+    console.log('')
 
     const { results, failures } = await scanDirectory(args.directory, system, index, {
       recursive: args.recursive,
@@ -107,14 +125,21 @@ async function scan(argv: string[]): Promise<number> {
       unidentified: 0,
     }
 
+    let fromArchiveIndex = 0
+
     for (const result of results) {
       counts[result.method] += 1
+      if (result.fromArchiveIndex === true) fromArchiveIndex += 1
+
       const target = result.proposedName ?? '(sem proposta)'
-      const unchanged = result.proposedName === result.fileName
-      const arrow = unchanged ? '=' : '→'
+      const arrow = result.proposedName === result.fileName ? '=' : '→'
+      const source =
+        result.archiveEntry !== undefined
+          ? `${result.fileName} › ${result.archiveEntry}`
+          : result.fileName
       const ambiguity = result.ambiguous ? `  ⚠ ${result.matches.length} candidatos` : ''
       console.log(
-        `${METHOD_LABEL[result.method].padEnd(18)} ${result.fileName} ${arrow} ${target}${ambiguity}`,
+        `${METHOD_LABEL[result.method].padEnd(18)} ${source} ${arrow} ${target}${ambiguity}`,
       )
     }
 
@@ -131,10 +156,13 @@ async function scan(argv: string[]): Promise<number> {
         `  por hash s/ hdr: ${counts['hash-headerless']}`,
         `  por nome:        ${counts.filename}`,
         `  não identificados: ${counts.unidentified}`,
+        fromArchiveIndex > 0 ? `  (${fromArchiveIndex} via CRC do zip, sem descomprimir)` : '',
         results.length > 0
           ? `Taxa de identificação por hash: ${((identified / results.length) * 100).toFixed(1)}%`
           : '',
-      ].join('\n'),
+      ]
+        .filter((line) => line !== '')
+        .join('\n'),
     )
 
     return 0
@@ -152,12 +180,17 @@ function printUsage(): void {
       '  romorg systems',
       '      Lista os sistemas suportados.',
       '',
-      '  romorg scan <pasta> --system <id> [--dat <arquivo.dat>]... [--recursive]',
+      '  romorg scan <pasta> --system <id> [opções]',
       '      Identifica os arquivos da pasta e mostra o nome proposto para cada um.',
-      '      Não altera nada em disco.',
+      '      Lê ROMs soltas e dentro de .zip. Não altera nada em disco.',
       '',
-      'Exemplo:',
-      '  romorg scan ~/roms/snes --system snes --dat snes.dat',
+      '      --libretro, -l    Baixa os DATs do libretro-database para o sistema.',
+      '      --dat, -d <arq>   Usa um DAT local (No-Intro/Redump). Pode repetir.',
+      '      --recursive, -r   Desce nas subpastas.',
+      '',
+      'Exemplos:',
+      '  romorg scan ~/roms/snes --system snes --libretro',
+      '  romorg scan ~/roms/nes --system nes --dat nes.dat --recursive',
     ].join('\n'),
   )
 }

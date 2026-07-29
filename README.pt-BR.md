@@ -29,10 +29,17 @@ A ordem aqui é:
 Nada muda sem você revisar: todo lote passa por **dry-run**, e toda execução grava um journal
 que permite **desfazer**.
 
+ROMs dentro de `.zip` também são tratadas — e normalmente sem descomprimir nada, já que o
+formato zip guarda o CRC32 do conteúdo descomprimido de cada entrada.
+
 ## Bases de dados
 
-- **libretro-database** — baixado sob demanda pelo app, versionado e atualizável.
+- **libretro-database** — baixado sob demanda, versionado e atualizável. Para sistemas que
+  têm as duas, as coleções `no-intro` e `headered` são buscadas juntas — é o que faz um `.nes`
+  bater venha ele com header ou sem.
 - **Importação manual** de DATs do No-Intro / Redump, para quem mantém sets exatos.
+
+Os dois dialetos de DAT são suportados: Logiqx XML (No-Intro) e clrmamepro (libretro-database).
 
 ## Desenvolvimento
 
@@ -58,7 +65,7 @@ Outros comandos:
 O CLI roda direto do código-fonte, sem build:
 
 ```bash
-node packages/cli/src/index.ts systems
+node packages/cli/src/index.ts scan ~/roms/snes --system snes --libretro
 ```
 
 ### Estrutura
@@ -82,7 +89,9 @@ Veja o [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md).
 
 - A ferramenta opera sobre arquivos **que já estão no disco do usuário**.
 - Não baixa ROMs, não faz busca, não indexa fontes e não aceita links para elas.
-- Os DATs usados são **metadados** (nome, hash, região) — nunca conteúdo de jogo.
+- Os DATs usados são **metadados** (nome, hash, região) — nunca conteúdo de jogo. Os que vêm do
+  [libretro-database](https://github.com/libretro/libretro-database) estão sob CC BY-SA 4.0 e são
+  baixados sob demanda pelo usuário, não redistribuídos com o app.
 - Nenhuma ROM, BIOS ou header proprietário entra neste repositório, **incluindo fixtures de
   teste**, que são geradas sinteticamente.
 - Issues e PRs pedindo ou oferecendo ROMs são fechados sem discussão.

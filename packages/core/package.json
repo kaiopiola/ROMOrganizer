@@ -13,9 +13,11 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2"
+    "@types/node": "^26.1.2",
+    "@types/yauzl": "^3.4.0"
   },
   "dependencies": {
-    "fast-xml-parser": "^5.10.1"
+    "fast-xml-parser": "^5.10.1",
+    "yauzl": "^3.4.0"
   }
 }
