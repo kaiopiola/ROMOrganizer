@@ -94,3 +94,38 @@ export function sanitizeFileName(name: string): string {
 export function buildFileName(template: string, tokens: TemplateTokens): string {
   return sanitizeFileName(renderTemplate(template, tokens))
 }
+
+/**
+ * Aplica um template que pode conter `/` e devolve um caminho relativo já seguro.
+ *
+ * A barra é o que permite ao usuário organizar em subpastas com o mesmo template que nomeia o
+ * arquivo — `{region}/{title}.{ext}`. Cada segmento é sanitizado **em separado**, senão a
+ * própria barra seria trocada por `_` e o caminho viraria um nome único gigante.
+ *
+ * Segmentos vazios são descartados: com `{region}/{title}.{ext}` e região desconhecida, o
+ * resultado é `Título.nes` na raiz, não `_/Título.nes`.
+ */
+export function buildRelativePath(template: string, tokens: TemplateTokens): string {
+  return renderTemplate(template, tokens)
+    .split('/')
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0)
+    .map(sanitizeFileName)
+    .join('/')
+}
+
+/** Tokens que os templates aceitam, para a interface poder listá-los. */
+export const TEMPLATE_TOKENS = [
+  'title',
+  'region',
+  'regions',
+  'language',
+  'revision',
+  'year',
+  'system',
+  'manufacturer',
+  'letter',
+  'ext',
+] as const
+
+export type TemplateToken = (typeof TEMPLATE_TOKENS)[number]

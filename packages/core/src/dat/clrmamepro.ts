@@ -173,10 +173,13 @@ export function parseClrMameProDat(text: string): ParsedDat {
       const sha1 = normalizeHash(child.block.fields.get('sha1'), 40)
       if (crc32 === undefined && md5 === undefined && sha1 === undefined) continue
 
+      const year = block.fields.get('year')
+
       entries.push({
         gameName,
         romName,
         size: Number(child.block.fields.get('size') ?? 0),
+        ...(year !== undefined && { year }),
         ...(crc32 !== undefined && { crc32 }),
         ...(md5 !== undefined && { md5 }),
         ...(sha1 !== undefined && { sha1 }),

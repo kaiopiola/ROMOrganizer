@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import type { SystemRulePack } from '@romorg/core'
+import type { SystemRulePack } from '@romorg/core/browser'
 import type { Library } from '../../../main/libraries.ts'
 import { t } from '../i18n.ts'
+import { SystemPickerModal } from './SystemPickerModal.tsx'
 
 interface Props {
   systems: SystemRulePack[]
@@ -98,35 +99,22 @@ export function LibrarySidebar({ systems, libraries, activeId, onSelect, onChang
       </ul>
 
       <div className="border-t border-neutral-800 p-3">
-        {adding ? (
-          <select
-            autoFocus
-            defaultValue=""
-            onChange={(event) => {
-              if (event.target.value !== '') void addLibrary(event.target.value)
-            }}
-            onBlur={() => setAdding(false)}
-            className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-2 py-2 text-sm"
-          >
-            <option value="" disabled>
-              {t.chooseSystem}
-            </option>
-            {systems.map((system) => (
-              <option key={system.id} value={system.id}>
-                {system.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="w-full rounded-md border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-800"
-          >
-            {t.addLibrary}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="w-full rounded-md border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-800"
+        >
+          {t.addLibrary}
+        </button>
       </div>
+
+      {adding && (
+        <SystemPickerModal
+          systems={systems}
+          onPick={(systemId) => void addLibrary(systemId)}
+          onClose={() => setAdding(false)}
+        />
+      )}
     </aside>
   )
 }

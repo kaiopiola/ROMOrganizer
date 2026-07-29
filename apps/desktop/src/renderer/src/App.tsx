@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { SystemRulePack } from '@romorg/core'
+import type { SystemRulePack } from '@romorg/core/browser'
 import type { Library } from '../../main/libraries.ts'
 import type {
   ApplyResultDto,
@@ -13,6 +13,7 @@ import { LibrarySidebar } from './components/LibrarySidebar.tsx'
 import { ScanTable } from './components/ScanTable.tsx'
 import { PlanPanel } from './components/PlanPanel.tsx'
 import { HistoryPanel } from './components/HistoryPanel.tsx'
+import { TemplateEditor } from './components/TemplateEditor.tsx'
 
 export function App() {
   const [systems, setSystems] = useState<SystemRulePack[]>([])
@@ -34,6 +35,7 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null)
 
   const active = libraries.find((library) => library.id === activeId) ?? null
+  const activeSystem = systems.find((system) => system.id === active?.systemId) ?? null
 
   useEffect(() => {
     void window.romorg.listSystems().then(setSystems)
@@ -55,6 +57,16 @@ export function App() {
     if (activeId !== null) void refreshJournals(activeId)
     else setJournals([])
   }, [activeId, refreshJournals])
+
+  async function updateTemplate(template: string): Promise<void> {
+    if (active === null) return
+    await window.romorg.libraries.update(active.id, { template })
+    setLibraries(await window.romorg.libraries.list())
+    // O padrão mudou, então os nomes propostos em tela não valem mais: melhor zerar do que
+    // deixar o usuário aprovar um plano calculado com a regra anterior.
+    setScan(null)
+    setPlan(null)
+  }
 
   const planOptions = { includeFilenameMatches, allowAmbiguous }
 
@@ -137,9 +149,7 @@ export function App() {
         <header className="border-b border-neutral-800 px-8 py-5">
           <h1 className="text-lg font-semibold">{active?.directory ?? t.appName}</h1>
           <p className="text-sm text-neutral-400">
-            {active === null
-              ? t.tagline
-              : (systems.find((system) => system.id === active.systemId)?.name ?? active.systemId)}
+            {active === null ? t.tagline : (activeSystem?.name ?? active.systemId)}
           </p>
         </header>
 
@@ -214,6 +224,12 @@ export function App() {
                 {notice}
               </p>
             )}
+
+            <TemplateEditor
+              value={active.template ?? ''}
+              systemDefault={activeSystem?.defaultTemplate ?? '{title}.{ext}'}
+              onCommit={(template) => void updateTemplate(template)}
+            />
 
             {scan !== null && <ScanTable rows={scan.rows} />}
 

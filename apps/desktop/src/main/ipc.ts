@@ -96,8 +96,10 @@ export function registerIpc(
     return libraries.add(systemId, result.filePaths[0])
   })
 
-  ipcMain.handle('libraries:update', (_event, id: string, changes: { recursive?: boolean }) =>
-    libraries.update(id, changes),
+  ipcMain.handle(
+    'libraries:update',
+    (_event, id: string, changes: { recursive?: boolean; template?: string }) =>
+      libraries.update(id, changes),
   )
 
   ipcMain.handle('libraries:remove', async (_event, id: string) => {
@@ -137,6 +139,10 @@ export function registerIpc(
 
         const summary = await scanDirectory(library.directory, system, index, {
           recursive: library.recursive,
+          ...(library.template !== undefined &&
+            library.template !== '' && {
+              template: library.template,
+            }),
           signal: controller.signal,
           onProgress: (done, total, current) => {
             const progress: ScanProgress = {

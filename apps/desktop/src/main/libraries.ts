@@ -11,6 +11,8 @@ export interface Library {
   systemId: string
   directory: string
   recursive: boolean
+  /** Padrão de nomes desta biblioteca. Vazio significa usar o do rule pack. */
+  template?: string
 }
 
 interface LibrariesFile {

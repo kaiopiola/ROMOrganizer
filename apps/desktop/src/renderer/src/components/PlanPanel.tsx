@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { SkipReason } from '@romorg/core'
+import type { SkipReason } from '@romorg/core/browser'
 import type { PlanDto } from '../../../main/ipc-types.ts'
 import { t } from '../i18n.ts'
 

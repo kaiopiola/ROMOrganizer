@@ -12,6 +12,7 @@ export interface IndexMatch {
   gameName: string
   romName: string
   size: number
+  year: string | null
   crc32: string | null
   md5: string | null
   sha1: string | null
@@ -49,6 +50,7 @@ const SCHEMA = `
     game_name TEXT NOT NULL,
     rom_name  TEXT NOT NULL,
     size      INTEGER NOT NULL,
+    year      TEXT,
     crc32     TEXT,
     md5       TEXT,
     sha1      TEXT
@@ -63,6 +65,7 @@ const SELECT_COLUMNS = `
   rom.game_name AS gameName,
   rom.rom_name  AS romName,
   rom.size      AS size,
+  rom.year      AS year,
   rom.crc32     AS crc32,
   rom.md5       AS md5,
   rom.sha1      AS sha1,
@@ -97,8 +100,8 @@ export class DatIndex {
         .run(parsed.name, parsed.version ?? null, importedAt)
 
       const insert = this.db.prepare(
-        `INSERT INTO rom (source_id, game_name, rom_name, size, crc32, md5, sha1)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO rom (source_id, game_name, rom_name, size, year, crc32, md5, sha1)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       for (const entry of parsed.entries) {
         insert.run(
@@ -106,6 +109,7 @@ export class DatIndex {
           entry.gameName,
           entry.romName,
           entry.size,
+          entry.year ?? null,
           entry.crc32 ?? null,
           entry.md5 ?? null,
           entry.sha1 ?? null,

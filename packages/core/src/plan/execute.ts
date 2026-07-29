@@ -68,6 +68,11 @@ async function safeRename(from: string, to: string): Promise<void> {
   if (await pathExists(to)) {
     throw new Error(`destino já existe: ${to}`)
   }
+
+  // Templates com `/` organizam em subpastas, que podem ainda não existir.
+  const targetDir = dirname(to)
+  if (targetDir !== dirname(from)) await mkdir(targetDir, { recursive: true })
+
   await rename(from, to)
 }
 

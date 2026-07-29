@@ -126,6 +126,23 @@ describe('executePlan', () => {
     expect(await readFile(join(workDir, 'Mario.nes'), 'utf8')).toBe('conteudo')
   })
 
+  it('cria as subpastas que o template pedir', async () => {
+    await writeFile(join(workDir, 'x.nes'), 'conteudo')
+
+    const result = await executePlan(planOf([['x.nes', 'USA/1991/Jogo.nes']]), { journalDir })
+
+    expect(result.failed).toEqual([])
+    expect(await readFile(join(workDir, 'USA', '1991', 'Jogo.nes'), 'utf8')).toBe('conteudo')
+  })
+
+  it('desfaz um rename que criou subpasta, devolvendo o arquivo à raiz', async () => {
+    await writeFile(join(workDir, 'x.nes'), 'conteudo')
+    const result = await executePlan(planOf([['x.nes', 'USA/Jogo.nes']]), { journalDir })
+
+    await undoFromJournal(result.journalPath as string)
+    expect(await listFiles()).toEqual(['x.nes'])
+  })
+
   it('uma falha no meio não impede as demais operações', async () => {
     await writeFile(join(workDir, 'a.nes'), 'a')
     await writeFile(join(workDir, 'c.nes'), 'c')

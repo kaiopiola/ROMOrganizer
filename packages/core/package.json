@@ -6,7 +6,8 @@
   "license": "GPL-3.0-or-later",
   "description": "Núcleo de identificação de ROMs: detecção de header, hashing, DATs e regras de nome. Node puro, sem Electron.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./browser": "./src/browser.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

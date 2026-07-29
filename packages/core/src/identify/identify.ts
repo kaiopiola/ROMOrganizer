@@ -6,7 +6,7 @@ import { hashChunkVariants, type RomHashes, type RomHashVariants } from '../hash
 import { detectByteOrder, type ByteOrderDetection } from '../rom/byte-order.ts'
 import { detectHeader, type HeaderDetection } from '../rom/header.ts'
 import { parseRomName, type ParsedRomName } from '../naming/parse-name.ts'
-import { buildFileName } from '../naming/template.ts'
+import { buildFileName, buildRelativePath, type TemplateTokens } from '../naming/template.ts'
 import type { SystemRulePack } from '../systems/types.ts'
 
 /**
@@ -52,6 +52,14 @@ export interface Identification {
   parsedName: ParsedRomName
   /** Nome proposto para o arquivo em disco, ou `null` sem informação suficiente. */
   proposedName: string | null
+}
+
+export interface IdentifyOptions {
+  /**
+   * Template de nome. Aceita `/` para organizar em subpastas.
+   * Ausente significa: usar o nome canônico do DAT, ou o template padrão do sistema.
+   */
+  template?: string
 }
 
 /** Quantos bytes ler do início para detectar header e byte order. */
@@ -102,39 +110,70 @@ function outputExtension(system: SystemRulePack, fileName: string): string {
   return current.length > 0 ? current : (system.extensions[0] as string)
 }
 
+/**
+ * Monta os tokens do template a partir do que se sabe do arquivo.
+ *
+ * Com match no DAT, o nome do jogo já vem no formato canônico (`Título (Região) (Rev A)`) —
+ * então ele é reinterpretado pelo parser de nome para os tokens ficarem disponíveis
+ * separadamente. É o que permite ao usuário pedir `{region}/{title}.{ext}` mesmo quando a
+ * região não estava no nome do arquivo original.
+ */
+function tokensFor(
+  system: SystemRulePack,
+  match: IndexMatch | undefined,
+  parsed: ParsedRomName,
+  targetFileName: string,
+): TemplateTokens {
+  const source = match === undefined ? parsed : parseRomName(match.romName)
+  const ext = outputExtension(system, targetFileName)
+  const [firstLetter] = source.title.toUpperCase()
+
+  return {
+    title: source.title,
+    region: source.regions[0],
+    regions: source.regions.join(', '),
+    language: source.languages[0],
+    revision: source.revision,
+    year: match?.year ?? undefined,
+    system: system.name,
+    manufacturer: system.manufacturer,
+    letter: firstLetter !== undefined && /[A-Z]/.test(firstLetter) ? firstLetter : '#',
+    ext,
+  }
+}
+
 function proposeName(
   system: SystemRulePack,
   matches: IndexMatch[],
   parsed: ParsedRomName,
   targetFileName: string,
+  template: string | undefined,
 ): string | null {
-  const ext = outputExtension(system, targetFileName)
-
-  // Com match no DAT, o nome do jogo já vem no formato canônico — não há o que remontar.
   const [first] = matches
-  if (first !== undefined) {
-    return buildFileName('{title}.{ext}', { title: first.gameName, ext })
-  }
 
   // Sem match, só vale propor algo se o nome seguia alguma convenção reconhecível.
-  if (parsed.convention === 'unknown') return null
+  if (first === undefined && parsed.convention === 'unknown') return null
 
-  return buildFileName(system.defaultTemplate, {
-    title: parsed.title,
-    region: parsed.regions.join(', '),
-    revision: parsed.revision,
-    ext,
-  })
+  const tokens = tokensFor(system, first, parsed, targetFileName)
+
+  // Sem template customizado e com match no DAT, o nome canônico do jogo é usado tal e qual:
+  // remontá-lo a partir dos tokens perderia sufixos que o parser não modela.
+  if (template === undefined && first !== undefined) {
+    return buildFileName('{title}.{ext}', { title: first.gameName, ext: tokens['ext'] })
+  }
+
+  return buildRelativePath(template ?? system.defaultTemplate, tokens)
 }
 
 function buildResult(
+  template: string | undefined,
   base: Pick<Identification, 'filePath' | 'fileName' | 'system'> & Partial<Identification>,
   matches: IndexMatch[],
   parsedName: ParsedRomName,
   targetFileName: string,
 ): Identification {
   const distinctGames = new Set(matches.map((match) => match.gameName))
-  const proposedName = proposeName(base.system, matches, parsedName, targetFileName)
+  const proposedName = proposeName(base.system, matches, parsedName, targetFileName, template)
 
   return {
     header: NO_HEADER,
@@ -216,6 +255,7 @@ export async function identifyFile(
   filePath: string,
   system: SystemRulePack,
   index: DatIndex,
+  options: IdentifyOptions = {},
 ): Promise<Identification> {
   const fileName = basename(filePath)
   const handle = await open(filePath, 'r')
@@ -230,6 +270,7 @@ export async function identifyFile(
   const parsedName = parseRomName(fileName)
 
   return buildResult(
+    options.template,
     {
       filePath,
       fileName,
@@ -261,6 +302,7 @@ export async function identifyZip(
   zipPath: string,
   system: SystemRulePack,
   index: DatIndex,
+  options: IdentifyOptions = {},
 ): Promise<Identification[]> {
   const fileName = basename(zipPath)
   const accepted = new Set(system.extensions)
@@ -280,6 +322,7 @@ export async function identifyZip(
     if (quick !== null) {
       results.push(
         buildResult(
+          options.template,
           { ...shared, method: 'hash', matchedBy: quick.matchedBy, fromArchiveIndex: true },
           quick.matches,
           parsedName,
@@ -298,6 +341,7 @@ export async function identifyZip(
 
     results.push(
       buildResult(
+        options.template,
         {
           ...shared,
           method: outcome.method,
@@ -330,8 +374,9 @@ export async function identifyPath(
   path: string,
   system: SystemRulePack,
   index: DatIndex,
+  options: IdentifyOptions = {},
 ): Promise<Identification[]> {
   return isZipPath(path)
-    ? identifyZip(path, system, index)
-    : [await identifyFile(path, system, index)]
+    ? identifyZip(path, system, index, options)
+    : [await identifyFile(path, system, index, options)]
 }

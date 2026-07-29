@@ -44,6 +44,9 @@ export {
 export { parseRomName, type ParsedRomName } from './naming/parse-name.ts'
 export {
   buildFileName,
+  buildRelativePath,
+  TEMPLATE_TOKENS,
+  type TemplateToken,
   renderTemplate,
   sanitizeFileName,
   TemplateError,
@@ -55,6 +58,7 @@ export {
   identifyPath,
   identifyZip,
   type Identification,
+  type IdentifyOptions,
   type IdentificationMethod,
 } from './identify/identify.ts'
 export { scanDirectory, type ScanOptions, type ScanSummary } from './identify/scan.ts'

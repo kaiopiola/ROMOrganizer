@@ -7,6 +7,8 @@ export interface DatEntry {
   /** Nome do arquivo como o DAT o registra, com extensão. */
   romName: string
   size: number
+  /** Ano de lançamento, quando o DAT o traz. */
+  year?: string
   crc32?: string
   md5?: string
   sha1?: string
@@ -88,10 +90,13 @@ export function parseLogiqxDat(xml: string): ParsedDat {
       // Entrada sem nenhum hash não é indexável — é o caso de DATs com roms `status="nodump"`.
       if (crc32 === undefined && md5 === undefined && sha1 === undefined) continue
 
+      const year = asString(game['year'])
+
       entries.push({
         gameName,
         romName,
         size: Number(asString(rom['@size']) ?? 0),
+        ...(year !== undefined && { year }),
         ...(crc32 !== undefined && { crc32 }),
         ...(md5 !== undefined && { md5 }),
         ...(sha1 !== undefined && { sha1 }),

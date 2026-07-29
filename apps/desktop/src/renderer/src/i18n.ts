@@ -13,6 +13,16 @@ const ptBR = {
   librariesEmpty: 'Nenhuma pasta vinculada ainda.',
   addLibrary: 'Vincular pasta…',
   chooseSystem: 'Escolha o console',
+  searchSystem: 'Buscar console…',
+  noSystemFound: 'Nenhum console encontrado.',
+
+  templateTitle: 'Padrão de nomes',
+  templateHint: 'Use {token} para os dados do jogo, [ ] para partes opcionais e / para subpastas.',
+  templatePresets: 'Exemplos:',
+  templatePreviewMissing: 'Sem região nem ano',
+  templateMovesFiles: 'Este padrão tem /, então os arquivos serão movidos para subpastas.',
+  tokenHint: (token: string) => `Inserir {${token}}`,
+
   removeLibrary: 'Desvincular',
   revealLibrary: 'Abrir pasta',
   recursive: 'Incluir subpastas',
@@ -86,6 +96,16 @@ const en: Dictionary = {
   librariesEmpty: 'No folder linked yet.',
   addLibrary: 'Link a folder…',
   chooseSystem: 'Choose the console',
+  searchSystem: 'Search console…',
+  noSystemFound: 'No console found.',
+
+  templateTitle: 'Naming pattern',
+  templateHint: 'Use {token} for game data, [ ] for optional parts, and / for subfolders.',
+  templatePresets: 'Examples:',
+  templatePreviewMissing: 'Without region or year',
+  templateMovesFiles: 'This pattern contains /, so files will be moved into subfolders.',
+  tokenHint: (token: string) => `Insert {${token}}`,
+
   removeLibrary: 'Unlink',
   revealLibrary: 'Open folder',
   recursive: 'Include subfolders',

@@ -2,9 +2,9 @@ import { readdir } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import type { DatIndex } from '../dat/index-db.ts'
 import type { SystemRulePack } from '../systems/types.ts'
-import { identifyPath, type Identification } from './identify.ts'
+import { identifyPath, type Identification, type IdentifyOptions } from './identify.ts'
 
-export interface ScanOptions {
+export interface ScanOptions extends IdentifyOptions {
   /** Percorre subpastas. */
   recursive?: boolean
   /** Quantos arquivos identificar em paralelo. */
@@ -83,7 +83,7 @@ export async function scanDirectory(
 
       const filePath = files[current] as string
       try {
-        const identifications = await identifyPath(filePath, system, index)
+        const identifications = await identifyPath(filePath, system, index, options)
         perFile[current] = identifications
         done += 1
         for (const identification of identifications) {

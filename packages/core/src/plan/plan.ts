@@ -99,6 +99,8 @@ export function planRenames(
       continue
     }
 
+    // `proposedName` pode conter `/` quando o template organiza em subpastas; `join`
+    // resolve isso relativo à pasta onde o arquivo está hoje.
     candidates.push({ from: filePath, to: join(dirname(filePath), proposedName), identification })
   }
 

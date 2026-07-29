@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import type { IdentificationMethod } from '@romorg/core'
+import type { IdentificationMethod } from '@romorg/core/browser'
 import type { ScanRow } from '../../../main/ipc-types.ts'
 import { t } from '../i18n.ts'
 
