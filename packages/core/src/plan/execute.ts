@@ -20,6 +20,14 @@ export interface ExecutionResult {
   failed: ExecutionFailure[]
   /** Caminho do journal gravado, ou `null` quando nada foi aplicado. */
   journalPath: string | null
+  /**
+   * O lote foi interrompido a pedido.
+   *
+   * Cancelar devolve o resultado parcial em vez de lançar: o que já foi renomeado está em
+   * disco e no journal de qualquer forma, e quem cancelou precisa justamente saber o que
+   * chegou a acontecer — e ter o journal em mãos para desfazer.
+   */
+  cancelled: boolean
 }
 
 export interface ExecuteOptions {
@@ -96,7 +104,7 @@ export async function executePlan(
   const failed: ExecutionFailure[] = []
 
   if (plan.operations.length === 0) {
-    return { applied, failed, journalPath: null }
+    return { applied, failed, journalPath: null, cancelled: false }
   }
 
   await mkdir(options.journalDir, { recursive: true })
@@ -106,10 +114,15 @@ export async function executePlan(
   )
 
   const journal = await open(journalPath, 'a')
+  let cancelled = false
+
   try {
     let done = 0
     for (const operation of plan.operations) {
-      options.signal?.throwIfAborted()
+      if (options.signal?.aborted === true) {
+        cancelled = true
+        break
+      }
 
       try {
         await safeRename(operation.from, operation.to)
@@ -136,7 +149,7 @@ export async function executePlan(
     await journal.close()
   }
 
-  return { applied, failed, journalPath }
+  return { applied, failed, journalPath, cancelled }
 }
 
 export interface UndoResult {

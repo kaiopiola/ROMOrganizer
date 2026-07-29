@@ -15,6 +15,7 @@ import { ScanTable } from './components/ScanTable.tsx'
 import { PlanPanel } from './components/PlanPanel.tsx'
 import { HistoryPanel } from './components/HistoryPanel.tsx'
 import { TemplateEditor } from './components/TemplateEditor.tsx'
+import { LibraryToolbar } from './components/LibraryToolbar.tsx'
 
 export function App() {
   const [systems, setSystems] = useState<SystemRulePack[]>([])
@@ -126,8 +127,7 @@ export function App() {
     setApplyProgress(null)
     await withErrorHandling(async () => {
       const result: ApplyResultDto = await window.romorg.plan.apply(active.id, planOptions, null)
-      if (result.cancelled) return
-      setNotice(t.applied(result.applied))
+      setNotice(result.cancelled ? t.appliedPartial(result.applied) : t.applied(result.applied))
       if (result.failed.length > 0) {
         setError(result.failed.map((failure) => failure.reason).join('\n'))
       }
@@ -186,6 +186,12 @@ export function App() {
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-8 py-6">
+            <LibraryToolbar
+              library={active}
+              disabled={busy !== null}
+              onChanged={async () => setLibraries(await window.romorg.libraries.list())}
+            />
+
             <section className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
@@ -195,11 +201,15 @@ export function App() {
               >
                 {busy === 'scanning' ? t.scanning : t.scan}
               </button>
-              {busy === 'scanning' && (
+              {busy !== null && (
                 <button
                   type="button"
-                  onClick={() => void window.romorg.scan.cancel(active.id)}
-                  className="rounded-md border border-neutral-700 px-3 py-2 text-sm"
+                  onClick={() =>
+                    void (busy === 'scanning'
+                      ? window.romorg.scan.cancel(active.id)
+                      : window.romorg.plan.cancel(active.id))
+                  }
+                  className="rounded-md border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-800"
                 >
                   {t.cancel}
                 </button>

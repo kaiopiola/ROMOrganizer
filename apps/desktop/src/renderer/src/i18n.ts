@@ -63,6 +63,8 @@ const ptBR = {
     `Renomear ${count} arquivo${count === 1 ? '' : 's'}? Dá para desfazer depois.`,
   applying: 'Aplicando…',
   applied: (count: number) => `${count} renomeado${count === 1 ? '' : 's'}`,
+  appliedPartial: (count: number) =>
+    `Cancelado. ${count} arquivo${count === 1 ? '' : 's'} já renomeado${count === 1 ? '' : 's'} — dá para desfazer pelo histórico.`,
 
   includeFilenameMatches: 'Renomear também o identificado só pelo nome',
   includeFilenameMatchesHint:
@@ -145,6 +147,8 @@ const en: Dictionary = {
     `Rename ${count} file${count === 1 ? '' : 's'}? This can be undone.`,
   applying: 'Applying…',
   applied: (count: number) => `${count} renamed`,
+  appliedPartial: (count: number) =>
+    `Cancelled. ${count} file${count === 1 ? '' : 's'} already renamed — you can undo from the history.`,
 
   includeFilenameMatches: 'Also rename what was identified by filename only',
   includeFilenameMatchesHint:

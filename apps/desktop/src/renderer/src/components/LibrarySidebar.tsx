@@ -60,43 +60,6 @@ export function LibrarySidebar({ systems, libraries, activeId, onSelect, onChang
                   {library.directory}
                 </span>
               </button>
-
-              {isActive && (
-                <div className="flex flex-col gap-1 px-3 py-2">
-                  <label className="flex items-center gap-2 text-xs text-neutral-400">
-                    <input
-                      type="checkbox"
-                      checked={library.recursive}
-                      onChange={async (event) => {
-                        await window.romorg.libraries.update(library.id, {
-                          recursive: event.target.checked,
-                        })
-                        await onChanged()
-                      }}
-                    />
-                    {t.recursive}
-                  </label>
-                  <div className="flex gap-3 text-xs">
-                    <button
-                      type="button"
-                      className="text-neutral-400 hover:text-neutral-200"
-                      onClick={() => void window.romorg.libraries.reveal(library.id)}
-                    >
-                      {t.revealLibrary}
-                    </button>
-                    <button
-                      type="button"
-                      className="text-neutral-500 hover:text-red-400"
-                      onClick={async () => {
-                        await window.romorg.libraries.remove(library.id)
-                        await onChanged()
-                      }}
-                    >
-                      {t.removeLibrary}
-                    </button>
-                  </div>
-                </div>
-              )}
             </li>
           )
         })}

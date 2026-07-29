@@ -57,11 +57,37 @@ export interface PlanOptions {
    * caro — só o nome proposto muda, e ele é recalculável a partir do que já está em memória.
    */
   template?: string
+  /**
+   * Raiz da biblioteca. **Obrigatória para templates com subpastas.**
+   *
+   * Sem ela, um template como `{region}/{title}.{ext}` seria resolvido relativo à pasta onde
+   * o arquivo está hoje — e num scan recursivo isso empilha: um arquivo já em `USA/` iria
+   * para `USA/USA/`, depois `USA/USA/USA/`, sem fim. A estrutura que o template descreve é
+   * sempre a partir da raiz.
+   */
+  rootDirectory?: string
 }
 
 /** Duas rotas para o mesmo arquivo no mesmo diretório, ignorando caixa. */
 function sameTargetKey(path: string): string {
   return path.toLowerCase()
+}
+
+/**
+ * A partir de onde o nome proposto é resolvido.
+ *
+ * Um template sem `/` só renomeia: o arquivo fica na pasta em que está, mesmo num scan
+ * recursivo. Um template com `/` descreve uma estrutura, e estrutura se conta a partir da
+ * raiz da biblioteca — senão a subpasta que ele cria vira o ponto de partida da próxima
+ * execução e o caminho cresce a cada scan.
+ */
+function baseDirFor(
+  filePath: string,
+  proposedName: string,
+  rootDirectory: string | undefined,
+): string {
+  const describesStructure = proposedName.includes('/')
+  return describesStructure && rootDirectory !== undefined ? rootDirectory : dirname(filePath)
 }
 
 /**
@@ -88,16 +114,23 @@ export function planRenames(
   // Primeiro passe: decide o destino de cada arquivo isoladamente.
   const candidates: PlannedOperation[] = []
   for (const identification of identifications) {
-    const { proposedName, fileName, filePath } = identification
+    const { proposedName, filePath } = identification
 
     if (proposedName === null) {
       skipped.push({ identification, reason: 'no-proposal' })
       continue
     }
-    if (proposedName === fileName) {
+
+    const target = join(baseDirFor(filePath, proposedName, options.rootDirectory), proposedName)
+
+    // Comparar o caminho final, não o nome: com subpastas, `USA/Jogo.nes` nunca é igual a
+    // `Jogo.nes`, e o arquivo já organizado seria "renomeado" para dentro de si mesmo a cada
+    // execução.
+    if (target === filePath) {
       skipped.push({ identification, reason: 'already-named' })
       continue
     }
+
     if (identification.ambiguous && options.allowAmbiguous !== true) {
       skipped.push({
         identification,
@@ -111,9 +144,7 @@ export function planRenames(
       continue
     }
 
-    // `proposedName` pode conter `/` quando o template organiza em subpastas; `join`
-    // resolve isso relativo à pasta onde o arquivo está hoje.
-    candidates.push({ from: filePath, to: join(dirname(filePath), proposedName), identification })
+    candidates.push({ from: filePath, to: target, identification })
   }
 
   // Segundo passe: conflitos só existem no conjunto, não no arquivo isolado.

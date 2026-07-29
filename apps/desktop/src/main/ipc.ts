@@ -38,7 +38,9 @@ import type {
 interface LibraryState {
   identifications: Map<string, Identification>
   order: string[]
-  controller: AbortController | null
+  /** Scan e aplicação são canceláveis de forma independente. */
+  scanController: AbortController | null
+  applyController: AbortController | null
 }
 
 function rowIdOf(identification: Identification): string {
@@ -105,7 +107,12 @@ export function registerIpc(
   function stateOf(libraryId: string): LibraryState {
     let state = states.get(libraryId)
     if (state === undefined) {
-      state = { identifications: new Map(), order: [], controller: null }
+      state = {
+        identifications: new Map(),
+        order: [],
+        scanController: null,
+        applyController: null,
+      }
       states.set(libraryId, state)
     }
     return state
@@ -173,9 +180,9 @@ export function registerIpc(
       if (system === undefined) throw new Error(`sistema desconhecido: ${library.systemId}`)
 
       const state = stateOf(libraryId)
-      state.controller?.abort()
+      state.scanController?.abort()
       const controller = new AbortController()
-      state.controller = controller
+      state.scanController = controller
 
       const index = new DatIndex()
       try {
@@ -213,16 +220,21 @@ export function registerIpc(
         return dto
       } finally {
         index.close()
-        if (state.controller === controller) state.controller = null
+        if (state.scanController === controller) state.scanController = null
       }
     },
   )
 
   ipcMain.handle('scan:cancel', (_event, libraryId: string) => {
-    stateOf(libraryId).controller?.abort()
+    stateOf(libraryId).scanController?.abort()
   })
 
-  ipcMain.handle('plan:build', (_event, libraryId: string, options: PlanOptionsDto) => {
+  ipcMain.handle('apply:cancel', (_event, libraryId: string) => {
+    stateOf(libraryId).applyController?.abort()
+  })
+
+  ipcMain.handle('plan:build', async (_event, libraryId: string, options: PlanOptionsDto) => {
+    const library = await requireLibrary(libraryId)
     const state = stateOf(libraryId)
     const identifications = identificationsOf(state)
     const template = templateOf(options)
@@ -232,6 +244,7 @@ export function registerIpc(
       allowAmbiguous: options.allowAmbiguous,
       existingPaths: identifications.map((identification) => identification.filePath),
       ...(template !== undefined && { template }),
+      rootDirectory: library.directory,
     })
 
     const dto: PlanDto = {
@@ -283,6 +296,7 @@ export function registerIpc(
         allowAmbiguous: options.allowAmbiguous,
         ...(template !== undefined && { template }),
         existingPaths: identifications.map((identification) => identification.filePath),
+        rootDirectory: library.directory,
       })
 
       const selected = selectedIds === null ? null : new Set(selectedIds)
@@ -302,10 +316,14 @@ export function registerIpc(
         return { applied: 0, failed: [], journalPath: null, cancelled: true }
       }
 
+      const controller = new AbortController()
+      state.applyController = controller
+
       const result = await executePlan(
         { operations, skipped: plan.skipped },
         {
           journalDir: journalDirFor(library),
+          signal: controller.signal,
           onProgress: (done, total, operation) => {
             const progress: ApplyProgress = {
               libraryId,
@@ -318,11 +336,13 @@ export function registerIpc(
         },
       )
 
+      if (state.applyController === controller) state.applyController = null
+
       return {
         applied: result.applied.length,
         failed: result.failed.map((failure) => ({ from: failure.from, reason: failure.reason })),
         journalPath: result.journalPath,
-        cancelled: false,
+        cancelled: result.cancelled,
       }
     },
   )

@@ -196,23 +196,57 @@ describe('executePlan', () => {
     expect(journalDuringRun[1]?.trim().split('\n')).toHaveLength(2)
   })
 
-  it('respeita o cancelamento no meio do lote', async () => {
+  it('cancelar devolve o resultado parcial em vez de lançar', async () => {
     await writeFile(join(workDir, 'a.nes'), 'a')
     await writeFile(join(workDir, 'b.nes'), 'b')
 
     const controller = new AbortController()
-    await expect(
-      executePlan(
-        planOf([
-          ['a.nes', 'A.nes'],
-          ['b.nes', 'B.nes'],
-        ]),
-        { journalDir, signal: controller.signal, onProgress: () => controller.abort() },
-      ),
-    ).rejects.toThrow()
+    const result = await executePlan(
+      planOf([
+        ['a.nes', 'A.nes'],
+        ['b.nes', 'B.nes'],
+      ]),
+      { journalDir, signal: controller.signal, onProgress: () => controller.abort() },
+    )
 
-    // O que já foi aplicado permanece — e está no journal, então dá para desfazer.
+    // Quem cancelou precisa saber o que chegou a acontecer, e ter o journal para desfazer.
+    expect(result.cancelled).toBe(true)
+    expect(result.applied).toHaveLength(1)
+    expect(result.journalPath).not.toBeNull()
     expect(await listFiles()).toEqual(['A.nes', 'b.nes'])
+  })
+
+  it('cancelar antes de começar não renomeia nada', async () => {
+    await writeFile(join(workDir, 'a.nes'), 'a')
+
+    const controller = new AbortController()
+    controller.abort()
+
+    const result = await executePlan(planOf([['a.nes', 'A.nes']]), {
+      journalDir,
+      signal: controller.signal,
+    })
+
+    expect(result.cancelled).toBe(true)
+    expect(result.applied).toEqual([])
+    expect(await listFiles()).toEqual(['a.nes'])
+  })
+
+  it('o que foi aplicado antes do cancelamento continua desfazível', async () => {
+    await writeFile(join(workDir, 'a.nes'), 'a')
+    await writeFile(join(workDir, 'b.nes'), 'b')
+
+    const controller = new AbortController()
+    const result = await executePlan(
+      planOf([
+        ['a.nes', 'A.nes'],
+        ['b.nes', 'B.nes'],
+      ]),
+      { journalDir, signal: controller.signal, onProgress: () => controller.abort() },
+    )
+
+    await undoFromJournal(result.journalPath as string)
+    expect(await listFiles()).toEqual(['a.nes', 'b.nes'])
   })
 })
 

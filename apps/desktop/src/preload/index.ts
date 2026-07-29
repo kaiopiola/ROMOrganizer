@@ -58,6 +58,7 @@ const api = {
       options: PlanOptionsDto,
       selectedIds: string[] | null,
     ): Promise<ApplyResultDto> => ipcRenderer.invoke('plan:apply', libraryId, options, selectedIds),
+    cancel: (libraryId: string): Promise<void> => ipcRenderer.invoke('apply:cancel', libraryId),
     onProgress: (listener: (progress: ApplyProgress) => void): (() => void) => {
       const handler = (_event: unknown, progress: ApplyProgress): void => listener(progress)
       ipcRenderer.on('apply:progress', handler)

@@ -148,6 +148,66 @@ describe('planRenames — template aplicado sobre identificações já feitas', 
   })
 })
 
+describe('planRenames — subpastas contam a partir da raiz da biblioteca', () => {
+  function inSubfolder(subfolder: string, fileName: string, proposed: string): Identification {
+    return {
+      ...identification(fileName, proposed),
+      filePath: join(DIR, subfolder, fileName),
+    }
+  }
+
+  it('resolve o template a partir da raiz, não da pasta onde o arquivo está', () => {
+    // O arquivo já está em USA/; sem a raiz, o destino viraria USA/USA/.
+    const plan = planRenames([inSubfolder('USA', 'Jogo.nes', 'USA/Jogo (USA).nes')], {
+      rootDirectory: DIR,
+    })
+
+    expect(plan.operations[0]?.to).toBe(join(DIR, 'USA', 'Jogo (USA).nes'))
+  })
+
+  it('é idempotente: rodar de novo sobre o resultado não move mais nada', () => {
+    // Este é o bug do aninhamento infinito — a segunda passada tem que ser um no-op.
+    const alreadyOrganized = inSubfolder('USA', 'Jogo (USA).nes', 'USA/Jogo (USA).nes')
+    const plan = planRenames([alreadyOrganized], { rootDirectory: DIR })
+
+    expect(plan.operations).toEqual([])
+    expect(plan.skipped[0]?.reason).toBe('already-named')
+  })
+
+  it('não empilha nem depois de várias execuções', () => {
+    let current = inSubfolder('USA', 'bagunca.nes', 'USA/Jogo (USA).nes')
+
+    for (let pass = 0; pass < 3; pass += 1) {
+      const plan = planRenames([current], { rootDirectory: DIR })
+      const destination = plan.operations[0]?.to ?? current.filePath
+      expect(destination).toBe(join(DIR, 'USA', 'Jogo (USA).nes'))
+      current = { ...current, filePath: destination, fileName: 'Jogo (USA).nes' }
+    }
+  })
+
+  it('template sem barra deixa o arquivo na subpasta em que está', () => {
+    // Quem só quer renomear não deve ver os arquivos migrarem para a raiz.
+    const plan = planRenames([inSubfolder('Sub', 'x.nes', 'Jogo (USA).nes')], {
+      rootDirectory: DIR,
+    })
+
+    expect(plan.operations[0]?.to).toBe(join(DIR, 'Sub', 'Jogo (USA).nes'))
+  })
+
+  it('sem raiz informada, mantém o comportamento relativo ao próprio arquivo', () => {
+    const plan = planRenames([inSubfolder('Sub', 'x.nes', 'Jogo.nes')])
+    expect(plan.operations[0]?.to).toBe(join(DIR, 'Sub', 'Jogo.nes'))
+  })
+
+  it('move para a raiz um arquivo que estava na subpasta errada', () => {
+    const plan = planRenames([inSubfolder('Japan', 'x.nes', 'USA/Jogo (USA).nes')], {
+      rootDirectory: DIR,
+    })
+
+    expect(plan.operations[0]?.to).toBe(join(DIR, 'USA', 'Jogo (USA).nes'))
+  })
+})
+
 describe('planRenames — conflitos', () => {
   it('pula quando o destino já existe em disco', () => {
     const plan = planRenames([identification('x.nes', 'Jogo (USA).nes')], {
