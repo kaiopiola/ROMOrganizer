@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
+import reactHooks from 'eslint-plugin-react-hooks'
 import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
@@ -20,6 +21,16 @@ export default tseslint.config(
         'error',
         { selector: 'TSEnumDeclaration', message: 'Use um union type ou objeto `as const`.' },
       ],
+    },
+  },
+  // Dependências de hook erradas causam plano desatualizado em tela — que aqui significa o
+  // usuário aprovar um rename que não é o que vai acontecer.
+  {
+    files: ['apps/desktop/src/renderer/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
     },
   },
   prettier,

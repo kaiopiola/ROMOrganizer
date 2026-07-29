@@ -1,8 +1,10 @@
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { loadRulePacksFrom, SystemRegistry } from '@romorg/core'
-import type { SystemRulePack } from '@romorg/core'
+import { DatCache } from './dat-cache.ts'
+import { LibraryStore } from './libraries.ts'
+import { registerIpc } from './ipc.ts'
 
 const IS_DEV = !app.isPackaged
 
@@ -17,21 +19,15 @@ function rulePacksDirectory(): string {
     : join(process.resourcesPath, 'systems')
 }
 
-let registry: SystemRegistry | null = null
-
-async function getRegistry(): Promise<SystemRegistry> {
-  registry ??= new SystemRegistry(await loadRulePacksFrom(rulePacksDirectory()))
-  return registry
-}
-
 function createWindow(): void {
   const window = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 900,
-    minHeight: 600,
+    width: 1280,
+    height: 860,
+    minWidth: 980,
+    minHeight: 620,
     show: false,
     autoHideMenuBar: true,
+    backgroundColor: '#0a0a0a',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: fileURLToPath(new URL('../preload/index.mjs', import.meta.url)),
@@ -57,11 +53,12 @@ function createWindow(): void {
   }
 }
 
-ipcMain.handle('systems:list', async (): Promise<SystemRulePack[]> => {
-  return (await getRegistry()).all()
-})
+void app.whenReady().then(async () => {
+  const registry = new SystemRegistry(await loadRulePacksFrom(rulePacksDirectory()))
+  const libraries = new LibraryStore(join(app.getPath('userData'), 'libraries.json'))
+  const datCache = new DatCache(join(app.getPath('userData'), 'dat-cache'))
 
-void app.whenReady().then(() => {
+  registerIpc(registry, libraries, datCache)
   createWindow()
 
   app.on('activate', () => {

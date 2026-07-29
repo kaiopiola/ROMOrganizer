@@ -11,7 +11,8 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "pack": "pnpm build && electron-builder --dir"
+    "pack": "pnpm build && electron-builder --dir",
+    "test": "vitest run"
   },
   "dependencies": {
     "@romorg/core": "workspace:*"
