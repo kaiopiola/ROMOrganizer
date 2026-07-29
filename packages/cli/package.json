@@ -1,0 +1,21 @@
+{
+  "name": "@romorg/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "description": "CLI headless do ROMOrganizer — mesma lógica do app, sem interface.",
+  "bin": {
+    "romorg": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "node --experimental-strip-types src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@romorg/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2"
+  }
+}

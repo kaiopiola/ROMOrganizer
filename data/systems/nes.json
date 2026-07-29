@@ -1,0 +1,12 @@
+{
+  "id": "nes",
+  "name": "Nintendo Entertainment System",
+  "manufacturer": "Nintendo",
+  "extensions": ["nes", "unf", "unif"],
+  "libretroDat": "Nintendo - Nintendo Entertainment System",
+  "header": {
+    "size": 16,
+    "magic": "4e45531a"
+  },
+  "defaultTemplate": "{title} ({region}){revision}.{ext}"
+}

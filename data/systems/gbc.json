@@ -1,0 +1,8 @@
+{
+  "id": "gbc",
+  "name": "Game Boy Color",
+  "manufacturer": "Nintendo",
+  "extensions": ["gbc"],
+  "libretroDat": "Nintendo - Game Boy Color",
+  "defaultTemplate": "{title} ({region}){revision}.{ext}"
+}

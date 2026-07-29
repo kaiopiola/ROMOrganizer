@@ -1,0 +1,12 @@
+{
+  "id": "snes",
+  "name": "Super Nintendo Entertainment System",
+  "manufacturer": "Nintendo",
+  "extensions": ["sfc", "smc", "swc", "fig"],
+  "libretroDat": "Nintendo - Super Nintendo Entertainment System",
+  "header": {
+    "size": 512,
+    "moduloBase": 1024
+  },
+  "defaultTemplate": "{title} ({region}){revision}.{ext}"
+}

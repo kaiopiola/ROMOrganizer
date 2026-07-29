@@ -1,3 +1,92 @@
 # ROMOrganizer
 
-In dev..
+_[Português (Brasil)](README.pt-BR.md)_
+
+An open source desktop tool that **organizes the ROM collection you already have**.
+It identifies each file by hash, resolves its title and region, and renames it — instead of
+guessing from the filename.
+
+> **Bring your own files.** ROMOrganizer does not download, search for, or distribute ROMs.
+> It only works on files already on your disk.
+
+## Status
+
+Under development — **Phase 0 (foundation)** is done. There is no usable release yet.
+
+## How it works
+
+Guessing a ROM from its filename is exactly what makes other tools get it wrong. The order here is:
+
+1. **Hash against a DAT** (CRC32/SHA1) — the source of truth.
+2. **Hash with the header stripped**, because No-Intro DATs are _headerless_: a `.nes` carrying
+   an iNES header (16 bytes) or a `.smc` carrying an SMC header (512 bytes) will never match
+   its CRC if hashed raw.
+3. **Byte order normalization** for the N64 (`.z64` / `.v64` / `.n64` are the same dump with
+   bytes swapped).
+4. **Filename heuristics** — last resort only, and flagged as such in the interface.
+
+Nothing changes without your review: every batch goes through a **dry run**, and every execution
+writes a journal that makes it **undoable**.
+
+## Databases
+
+- **libretro-database** — fetched on demand by the app, versioned and updatable.
+- **Manual import** of No-Intro / Redump DATs, for people who maintain exact sets.
+
+## Development
+
+Requires Node 22+ and pnpm (via `corepack enable pnpm`).
+
+```bash
+pnpm install
+```
+
+```bash
+pnpm dev
+```
+
+Other commands:
+
+| Command          | What it does                  |
+| ---------------- | ----------------------------- |
+| `pnpm test`      | Core test suite (Vitest)      |
+| `pnpm typecheck` | Type checking across packages |
+| `pnpm lint`      | ESLint                        |
+| `pnpm build`     | Build every package           |
+
+The CLI runs straight from source, no build step:
+
+```bash
+node packages/cli/src/index.ts systems
+```
+
+### Layout
+
+| Path            | Role                                                                      |
+| --------------- | ------------------------------------------------------------------------- |
+| `packages/core` | ROM identification. Plain Node, no Electron — where the logic lives.      |
+| `packages/cli`  | Headless interface on top of the core.                                    |
+| `apps/desktop`  | Electron app: main process (disk, database), preload, and React renderer. |
+| `data/systems`  | Per-console rule packs in JSON — the easiest way to contribute.           |
+
+The `core` package is deliberately Electron-free: it tests in milliseconds, and you can
+contribute to it without ever opening the app.
+
+## Contributing
+
+Adding support for a console is a pull request with **one JSON file** in `data/systems/` plus a
+test. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Legal scope
+
+- The tool operates on files **already on the user's disk**.
+- It does not download ROMs, does not search for them, does not index sources, and does not
+  accept links to them.
+- The DATs it uses are **metadata** (name, hash, region) — never game content.
+- No ROM, BIOS, or proprietary header belongs in this repository, **including test fixtures**,
+  which are generated synthetically.
+- Issues and pull requests asking for or offering ROMs are closed without discussion.
+
+## License
+
+[GPL-3.0-or-later](LICENSE).

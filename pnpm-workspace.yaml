@@ -1,0 +1,9 @@
+packages:
+  - packages/*
+  - apps/*
+
+# Estes precisam rodar scripts de instalação/rebuild (binários nativos e downloads).
+allowBuilds:
+  electron: true
+  electron-winstaller: true
+  esbuild: true

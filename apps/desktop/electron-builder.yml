@@ -1,0 +1,42 @@
+appId: dev.kaiopiola.romorganizer
+productName: ROMOrganizer
+copyright: Copyright © 2026 contribuidores do ROMOrganizer
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**
+  - '!**/*.map'
+
+# Rule packs ficam fora do bundle para poderem ser corrigidos sem uma release nova.
+extraResources:
+  - from: ../../data/systems
+    to: systems
+
+publish:
+  provider: github
+  owner: kaiopiola
+  repo: ROMOrganizer
+
+mac:
+  category: public.app-category.utilities
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  category: Utility
+  target:
+    - AppImage

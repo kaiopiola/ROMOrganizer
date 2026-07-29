@@ -1,0 +1,7 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Requests for ROMs, BIOS files, or links
+    url: https://github.com/kaiopiola/ROMOrganizer/blob/main/CONTRIBUTING.md
+    about: >
+      No. ROMOrganizer organizes files you already have — it does not provide game content or
+      point to where you can get it. Issues like these are closed without discussion.

@@ -1,0 +1,8 @@
+{
+  "id": "gb",
+  "name": "Game Boy",
+  "manufacturer": "Nintendo",
+  "extensions": ["gb"],
+  "libretroDat": "Nintendo - Game Boy",
+  "defaultTemplate": "{title} ({region}){revision}.{ext}"
+}

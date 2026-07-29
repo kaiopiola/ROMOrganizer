@@ -1,0 +1,8 @@
+{
+  "id": "gba",
+  "name": "Game Boy Advance",
+  "manufacturer": "Nintendo",
+  "extensions": ["gba"],
+  "libretroDat": "Nintendo - Game Boy Advance",
+  "defaultTemplate": "{title} ({region}){revision}.{ext}"
+}
