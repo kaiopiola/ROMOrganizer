@@ -6,6 +6,7 @@ import {
   executePlan,
   planRenames,
   readJournal,
+  reproposeName,
   scanDirectory,
   undoFromJournal,
   type Identification,
@@ -17,8 +18,10 @@ import { journalDirFor, type Library, type LibraryStore } from './libraries.ts'
 import type {
   ApplyResultDto,
   JournalSummary,
+  ApplyProgress,
   PlanDto,
   PlanOptionsDto,
+  PlanResultDto,
   ScanProgress,
   ScanRow,
   ScanSummaryDto,
@@ -72,6 +75,18 @@ export function registerIpc(
       states.set(libraryId, state)
     }
     return state
+  }
+
+  /** Vazio ou só espaços significa: sem template customizado. */
+  function templateOf(options: PlanOptionsDto): string | undefined {
+    const trimmed = options.template.trim()
+    return trimmed === '' ? undefined : trimmed
+  }
+
+  function identificationsOf(state: LibraryState): Identification[] {
+    return state.order
+      .map((id) => state.identifications.get(id))
+      .filter((value): value is Identification => value !== undefined)
   }
 
   async function requireLibrary(libraryId: string): Promise<Library> {
@@ -177,16 +192,16 @@ export function registerIpc(
     stateOf(libraryId).controller?.abort()
   })
 
-  ipcMain.handle('plan:build', async (_event, libraryId: string, options: PlanOptionsDto) => {
+  ipcMain.handle('plan:build', (_event, libraryId: string, options: PlanOptionsDto) => {
     const state = stateOf(libraryId)
-    const identifications = state.order
-      .map((id) => state.identifications.get(id))
-      .filter((value): value is Identification => value !== undefined)
+    const identifications = identificationsOf(state)
+    const template = templateOf(options)
 
     const plan = planRenames(identifications, {
       includeFilenameMatches: options.includeFilenameMatches,
       allowAmbiguous: options.allowAmbiguous,
       existingPaths: identifications.map((identification) => identification.filePath),
+      ...(template !== undefined && { template }),
     })
 
     const dto: PlanDto = {
@@ -202,7 +217,14 @@ export function registerIpc(
         detail: entry.detail ?? null,
       })),
     }
-    return dto
+
+    // As linhas acompanham o plano: um nome proposto na tabela que não bate com o que o
+    // plano fará seria a pior forma de o usuário aprovar a coisa errada.
+    const result: PlanResultDto = {
+      plan: dto,
+      rows: identifications.map((identification) => toRow(reproposeName(identification, template))),
+    }
+    return result
   })
 
   /**
@@ -215,21 +237,21 @@ export function registerIpc(
   ipcMain.handle(
     'plan:apply',
     async (
-      _event,
+      event,
       libraryId: string,
       options: PlanOptionsDto,
       selectedIds: string[] | null,
     ): Promise<ApplyResultDto> => {
       const library = await requireLibrary(libraryId)
       const state = stateOf(libraryId)
+      const template = templateOf(options)
 
-      const identifications = state.order
-        .map((id) => state.identifications.get(id))
-        .filter((value): value is Identification => value !== undefined)
+      const identifications = identificationsOf(state)
 
       const plan = planRenames(identifications, {
         includeFilenameMatches: options.includeFilenameMatches,
         allowAmbiguous: options.allowAmbiguous,
+        ...(template !== undefined && { template }),
         existingPaths: identifications.map((identification) => identification.filePath),
       })
 
@@ -241,7 +263,18 @@ export function registerIpc(
 
       const result = await executePlan(
         { operations, skipped: plan.skipped },
-        { journalDir: journalDirFor(library) },
+        {
+          journalDir: journalDirFor(library),
+          onProgress: (done, total, operation) => {
+            const progress: ApplyProgress = {
+              libraryId,
+              done,
+              total,
+              currentFile: operation.identification.fileName,
+            }
+            event.sender.send('apply:progress', progress)
+          },
+        },
       )
 
       return {

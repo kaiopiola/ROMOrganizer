@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { SystemRulePack } from '@romorg/core/browser'
 import type { Library } from '../../main/libraries.ts'
 import type {
+  ApplyProgress,
   ApplyResultDto,
   JournalSummary,
   PlanDto,
@@ -22,6 +23,7 @@ export function App() {
 
   const [scan, setScan] = useState<ScanSummaryDto | null>(null)
   const [progress, setProgress] = useState<ScanProgress | null>(null)
+  const [applyProgress, setApplyProgress] = useState<ApplyProgress | null>(null)
   const [plan, setPlan] = useState<PlanDto | null>(null)
   const [journals, setJournals] = useState<JournalSummary[]>([])
 
@@ -40,7 +42,13 @@ export function App() {
   useEffect(() => {
     void window.romorg.listSystems().then(setSystems)
     void window.romorg.libraries.list().then(setLibraries)
-    return window.romorg.scan.onProgress(setProgress)
+
+    const offScan = window.romorg.scan.onProgress(setProgress)
+    const offApply = window.romorg.plan.onProgress(setApplyProgress)
+    return () => {
+      offScan()
+      offApply()
+    }
   }, [])
 
   const refreshJournals = useCallback(async (libraryId: string) => {
@@ -58,17 +66,21 @@ export function App() {
     else setJournals([])
   }, [activeId, refreshJournals])
 
-  async function updateTemplate(template: string): Promise<void> {
-    if (active === null) return
-    await window.romorg.libraries.update(active.id, { template })
-    setLibraries(await window.romorg.libraries.list())
-    // O padrão mudou, então os nomes propostos em tela não valem mais: melhor zerar do que
-    // deixar o usuário aprovar um plano calculado com a regra anterior.
-    setScan(null)
-    setPlan(null)
-  }
+  const template = active?.template ?? ''
+  const planOptions = { includeFilenameMatches, allowAmbiguous, template }
 
-  const planOptions = { includeFilenameMatches, allowAmbiguous }
+  /**
+   * Trocar o padrão de nomes não descarta o scan.
+   *
+   * Identificar custa hash de disco inteiro; o nome proposto sai de dados já em memória. O
+   * main recalcula os dois — linhas e plano — e devolve juntos, para a tabela nunca mostrar
+   * um nome diferente do que o plano fará.
+   */
+  async function updateTemplate(next: string): Promise<void> {
+    if (active === null) return
+    await window.romorg.libraries.update(active.id, { template: next })
+    setLibraries(await window.romorg.libraries.list())
+  }
 
   async function withErrorHandling(action: () => Promise<void>): Promise<void> {
     setError(null)
@@ -85,8 +97,9 @@ export function App() {
     setNotice(null)
     await withErrorHandling(async () => {
       const summary = await window.romorg.scan.start(active.id, { useLibretro, localDatPaths })
-      setScan(summary)
-      setPlan(await window.romorg.plan.build(active.id, planOptions))
+      const result = await window.romorg.plan.build(active.id, planOptions)
+      setScan({ ...summary, rows: result.rows })
+      setPlan(result.plan)
     })
     setBusy(null)
     setProgress(null)
@@ -96,15 +109,21 @@ export function App() {
   // o que vai para o disco.
   useEffect(() => {
     if (active === null || scan === null) return
-    void window.romorg.plan.build(active.id, planOptions).then(setPlan)
+    void window.romorg.plan.build(active.id, planOptions).then((result) => {
+      setPlan(result.plan)
+      setScan((current) => (current === null ? null : { ...current, rows: result.rows }))
+    })
+    // `scan` fora das dependências de propósito: este efeito o atualiza, e incluí-lo
+    // criaria um laço infinito.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [includeFilenameMatches, allowAmbiguous, scan, active?.id])
+  }, [includeFilenameMatches, allowAmbiguous, template, active?.id, scan === null])
 
   async function applyPlan(): Promise<void> {
     if (active === null || plan === null || plan.operations.length === 0) return
     if (!window.confirm(t.applyConfirm(plan.operations.length))) return
 
     setBusy('applying')
+    setApplyProgress(null)
     await withErrorHandling(async () => {
       const result: ApplyResultDto = await window.romorg.plan.apply(active.id, planOptions, null)
       setNotice(t.applied(result.applied))
@@ -114,10 +133,12 @@ export function App() {
       await refreshJournals(active.id)
       // Reidentifica: depois do rename, os nomes em tela não valem mais.
       const summary = await window.romorg.scan.start(active.id, { useLibretro, localDatPaths })
-      setScan(summary)
-      setPlan(await window.romorg.plan.build(active.id, planOptions))
+      const rebuilt = await window.romorg.plan.build(active.id, planOptions)
+      setScan({ ...summary, rows: rebuilt.rows })
+      setPlan(rebuilt.plan)
     })
     setBusy(null)
+    setApplyProgress(null)
   }
 
   async function undo(journalPath: string): Promise<void> {
@@ -130,8 +151,9 @@ export function App() {
       }
       await refreshJournals(active.id)
       const summary = await window.romorg.scan.start(active.id, { useLibretro, localDatPaths })
-      setScan(summary)
-      setPlan(await window.romorg.plan.build(active.id, planOptions))
+      const rebuilt = await window.romorg.plan.build(active.id, planOptions)
+      setScan({ ...summary, rows: rebuilt.rows })
+      setPlan(rebuilt.plan)
     })
   }
 
@@ -205,14 +227,26 @@ export function App() {
               )}
             </section>
 
-            {progress !== null && busy === 'scanning' && (
-              <div className="h-1 w-full overflow-hidden rounded bg-neutral-800">
-                <div
-                  className="h-full bg-emerald-500 transition-[width]"
-                  style={{ width: `${(progress.done / Math.max(progress.total, 1)) * 100}%` }}
-                />
-              </div>
-            )}
+            {(() => {
+              const current =
+                busy === 'scanning' ? progress : busy === 'applying' ? applyProgress : null
+              if (current === null) return null
+
+              const percent = (current.done / Math.max(current.total, 1)) * 100
+              return (
+                <div>
+                  <div className="h-1 w-full overflow-hidden rounded bg-neutral-800">
+                    <div
+                      className="h-full bg-emerald-500 transition-[width]"
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 truncate text-xs text-neutral-500">
+                    {current.done}/{current.total} · {current.currentFile}
+                  </p>
+                </div>
+              )
+            })()}
 
             {error !== null && (
               <p className="rounded-md border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-300">
@@ -226,7 +260,7 @@ export function App() {
             )}
 
             <TemplateEditor
-              value={active.template ?? ''}
+              value={template}
               systemDefault={activeSystem?.defaultTemplate ?? '{title}.{ext}'}
               onCommit={(template) => void updateTemplate(template)}
             />

@@ -52,6 +52,19 @@ export interface PlanDto {
 export interface PlanOptionsDto {
   includeFilenameMatches: boolean
   allowAmbiguous: boolean
+  /** Vazio significa: usar o padrão do rule pack, ou o nome canônico do DAT. */
+  template: string
+}
+
+/**
+ * O plano vem com as linhas já recalculadas.
+ *
+ * Trocar o padrão de nomes muda o que a tabela mostra e o que o plano fará ao mesmo tempo —
+ * devolver os dois juntos evita que a tela fique com um nome proposto e o plano com outro.
+ */
+export interface PlanResultDto {
+  plan: PlanDto
+  rows: ScanRow[]
 }
 
 export interface ApplyResultDto {
@@ -70,6 +83,13 @@ export interface JournalSummary {
 export interface UndoResultDto {
   restored: number
   failed: { from: string; reason: string }[]
+}
+
+export interface ApplyProgress {
+  libraryId: string
+  done: number
+  total: number
+  currentFile: string
 }
 
 export interface ScanProgress {

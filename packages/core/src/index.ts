@@ -57,6 +57,7 @@ export {
   identifyFile,
   identifyPath,
   identifyZip,
+  reproposeName,
   type Identification,
   type IdentifyOptions,
   type IdentificationMethod,

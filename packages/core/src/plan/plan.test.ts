@@ -112,6 +112,42 @@ describe('planRenames', () => {
   })
 })
 
+describe('planRenames — template aplicado sobre identificações já feitas', () => {
+  const identified = identification('qualquer.nes', 'Alfa (USA).nes', {
+    matches: [
+      {
+        gameName: 'Alfa (USA)',
+        romName: 'Alfa (USA).nes',
+        size: 1,
+        year: '1988',
+        crc32: 'deadbeef',
+        md5: null,
+        sha1: null,
+        datSource: 'DAT',
+      },
+    ],
+  })
+
+  it('recalcula o destino sem precisar de um novo scan', () => {
+    const plan = planRenames([identified], { template: '{title}[ ({region})].{ext}' })
+    expect(plan.operations[0]?.to).toBe(join(DIR, 'Alfa (USA).nes'))
+  })
+
+  it('aplica template com subpastas usando dados que já estavam no match', () => {
+    const plan = planRenames([identified], { template: '{region}/{year}/{title}.{ext}' })
+    expect(plan.operations[0]?.to).toBe(join(DIR, 'USA', '1988', 'Alfa.nes'))
+  })
+
+  it('preserva o método de identificação — o template não muda como o arquivo foi achado', () => {
+    const plan = planRenames([identified], { template: '{title}.{ext}' })
+    expect(plan.operations[0]?.identification.method).toBe('hash')
+  })
+
+  it('sem template, mantém o nome canônico do DAT', () => {
+    expect(planRenames([identified]).operations[0]?.to).toBe(join(DIR, 'Alfa (USA).nes'))
+  })
+})
+
 describe('planRenames — conflitos', () => {
   it('pula quando o destino já existe em disco', () => {
     const plan = planRenames([identification('x.nes', 'Jogo (USA).nes')], {

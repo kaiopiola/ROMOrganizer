@@ -165,6 +165,37 @@ function proposeName(
   return buildRelativePath(template ?? system.defaultTemplate, tokens)
 }
 
+/**
+ * Recalcula o nome proposto de uma identificação já feita, com outro template.
+ *
+ * Trocar o padrão de nomes não muda **nada** do que custou caro — hash, header, byte order,
+ * match no DAT já estão resolvidos. Só o nome depende do template, e ele sai de dados que já
+ * estão em memória. Por isso mudar o padrão não deve exigir reescanear a pasta.
+ */
+export function reproposeName(
+  identification: Identification,
+  template: string | undefined,
+): Identification {
+  const proposedName = proposeName(
+    identification.system,
+    identification.matches,
+    identification.parsedName,
+    identification.fileName,
+    template,
+  )
+
+  // O método continua descrevendo *como o arquivo foi identificado*; o que muda é apenas se
+  // há ou não um nome a propor.
+  const method: IdentificationMethod =
+    identification.matches.length > 0
+      ? identification.method
+      : proposedName === null
+        ? 'unidentified'
+        : 'filename'
+
+  return { ...identification, proposedName, method }
+}
+
 function buildResult(
   template: string | undefined,
   base: Pick<Identification, 'filePath' | 'fileName' | 'system'> & Partial<Identification>,

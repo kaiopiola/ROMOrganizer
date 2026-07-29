@@ -1,5 +1,5 @@
 import { dirname, join } from 'node:path'
-import type { Identification } from '../identify/identify.ts'
+import { reproposeName, type Identification } from '../identify/identify.ts'
 
 /** Uma renomeação a executar. Caminhos absolutos, resolvidos no momento do planejamento. */
 export interface PlannedOperation {
@@ -50,6 +50,13 @@ export interface PlanOptions {
   allowAmbiguous?: boolean
   /** Caminhos que já existem em disco, para detectar colisão sem tocar no filesystem. */
   existingPaths?: Iterable<string>
+  /**
+   * Template de nome a aplicar sobre identificações já feitas.
+   *
+   * Fica aqui, e não no scan, porque trocar o padrão de nomes não invalida nada do que custou
+   * caro — só o nome proposto muda, e ele é recalculável a partir do que já está em memória.
+   */
+  template?: string
 }
 
 /** Duas rotas para o mesmo arquivo no mesmo diretório, ignorando caixa. */
@@ -64,9 +71,14 @@ function sameTargetKey(path: string): string {
  * usuário revisa antes de qualquer escrita.
  */
 export function planRenames(
-  identifications: readonly Identification[],
+  rawIdentifications: readonly Identification[],
   options: PlanOptions = {},
 ): RenamePlan {
+  const identifications =
+    options.template === undefined
+      ? rawIdentifications
+      : rawIdentifications.map((identification) => reproposeName(identification, options.template))
+
   const operations: PlannedOperation[] = []
   const skipped: SkippedFile[] = []
 

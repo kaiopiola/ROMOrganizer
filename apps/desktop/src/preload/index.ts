@@ -4,8 +4,9 @@ import type { Library } from '../main/libraries.ts'
 import type {
   ApplyResultDto,
   JournalSummary,
-  PlanDto,
+  ApplyProgress,
   PlanOptionsDto,
+  PlanResultDto,
   ScanProgress,
   ScanSummaryDto,
   UndoResultDto,
@@ -47,13 +48,18 @@ const api = {
   },
 
   plan: {
-    build: (libraryId: string, options: PlanOptionsDto): Promise<PlanDto> =>
+    build: (libraryId: string, options: PlanOptionsDto): Promise<PlanResultDto> =>
       ipcRenderer.invoke('plan:build', libraryId, options),
     apply: (
       libraryId: string,
       options: PlanOptionsDto,
       selectedIds: string[] | null,
     ): Promise<ApplyResultDto> => ipcRenderer.invoke('plan:apply', libraryId, options, selectedIds),
+    onProgress: (listener: (progress: ApplyProgress) => void): (() => void) => {
+      const handler = (_event: unknown, progress: ApplyProgress): void => listener(progress)
+      ipcRenderer.on('apply:progress', handler)
+      return () => ipcRenderer.off('apply:progress', handler)
+    },
   },
 
   journals: {
