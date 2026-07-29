@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises'
+import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   DatIndex,
   fetchLibretroDatsFor,
   loadRulePacksFrom,
   parseDat,
+  executePlan,
+  planRenames,
   scanDirectory,
   SystemRegistry,
+  undoFromJournal,
   type Identification,
+  type SkipReason,
 } from '@romorg/core'
 
 const RULE_PACKS_DIR = fileURLToPath(new URL('../../../data/systems', import.meta.url))
@@ -19,6 +24,14 @@ const METHOD_LABEL: Record<Identification['method'], string> = {
   'hash-headerless': 'hash (sem header)',
   filename: 'nome',
   unidentified: '—',
+}
+
+const SKIP_LABEL: Record<SkipReason, string> = {
+  'already-named': 'já com o nome certo',
+  'no-proposal': 'sem nome a propor',
+  ambiguous: 'DATs discordam',
+  collision: 'destino já existe',
+  'duplicate-target': 'dois arquivos, mesmo destino',
 }
 
 async function loadRegistry(): Promise<SystemRegistry> {
@@ -42,6 +55,8 @@ interface ScanArgs {
   datPaths: string[]
   recursive: boolean
   libretro: boolean
+  apply: boolean
+  includeFilenameMatches: boolean
 }
 
 function parseScanArgs(argv: string[]): ScanArgs | string {
@@ -50,6 +65,8 @@ function parseScanArgs(argv: string[]): ScanArgs | string {
   let systemId: string | undefined
   let recursive = false
   let libretro = false
+  let apply = false
+  let includeFilenameMatches = false
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i] as string
@@ -60,6 +77,10 @@ function parseScanArgs(argv: string[]): ScanArgs | string {
       if (value !== undefined) datPaths.push(value)
     } else if (arg === '--libretro' || arg === '-l') {
       libretro = true
+    } else if (arg === '--apply') {
+      apply = true
+    } else if (arg === '--include-filename-matches') {
+      includeFilenameMatches = true
     } else if (arg === '--recursive' || arg === '-r') {
       recursive = true
     } else if (arg.startsWith('-')) {
@@ -73,7 +94,7 @@ function parseScanArgs(argv: string[]): ScanArgs | string {
   if (directory === undefined) return 'informe a pasta a escanear'
   if (systemId === undefined) return 'informe o sistema com --system (veja `romorg systems`)'
 
-  return { directory, systemId, datPaths, recursive, libretro }
+  return { directory, systemId, datPaths, recursive, libretro, apply, includeFilenameMatches }
 }
 
 async function scan(argv: string[]): Promise<number> {
@@ -165,10 +186,68 @@ async function scan(argv: string[]): Promise<number> {
         .join('\n'),
     )
 
-    return 0
+    const plan = planRenames(results, {
+      includeFilenameMatches: args.includeFilenameMatches,
+      existingPaths: results.map((result) => result.filePath),
+    })
+
+    console.log(`\nA renomear: ${plan.operations.length}`)
+    for (const operation of plan.operations) {
+      console.log(`  ${basename(operation.from)} → ${basename(operation.to)}`)
+    }
+
+    const skipCounts = new Map<string, number>()
+    for (const entry of plan.skipped) {
+      skipCounts.set(entry.reason, (skipCounts.get(entry.reason) ?? 0) + 1)
+    }
+    if (skipCounts.size > 0) {
+      console.log('Fora do plano:')
+      for (const [reason, count] of [...skipCounts].sort()) {
+        console.log(`  ${SKIP_LABEL[reason as SkipReason].padEnd(28)} ${count}`)
+      }
+    }
+
+    if (!args.apply) {
+      console.log('\nDry-run: nada foi alterado. Use --apply para executar.')
+      return 0
+    }
+
+    if (plan.operations.length === 0) return 0
+
+    const execution = await executePlan(plan, { journalDir: journalDirFor(args.directory) })
+    console.log(`\nRenomeados: ${execution.applied.length}`)
+    for (const failure of execution.failed) {
+      console.error(`  falhou: ${basename(failure.from)} — ${failure.reason}`)
+    }
+    if (execution.journalPath !== null) {
+      console.log(`Journal: ${execution.journalPath}`)
+      console.log(`Para desfazer:  romorg undo "${execution.journalPath}"`)
+    }
+
+    return execution.failed.length > 0 ? 1 : 0
   } finally {
     index.close()
   }
+}
+
+/** O journal fica junto da coleção: quem move a pasta leva o histórico de undo junto. */
+function journalDirFor(directory: string): string {
+  return join(directory, '.romorg', 'journal')
+}
+
+async function undo(argv: string[]): Promise<number> {
+  const journalPath = argv[0]
+  if (journalPath === undefined) {
+    console.error('erro: informe o caminho do journal')
+    return 1
+  }
+
+  const result = await undoFromJournal(journalPath)
+  console.log(`Restaurados: ${result.restored.length}`)
+  for (const failure of result.failed) {
+    console.error(`  falhou: ${basename(failure.from)} — ${failure.reason}`)
+  }
+  return result.failed.length > 0 ? 1 : 0
 }
 
 function printUsage(): void {
@@ -187,10 +266,17 @@ function printUsage(): void {
       '      --libretro, -l    Baixa os DATs do libretro-database para o sistema.',
       '      --dat, -d <arq>   Usa um DAT local (No-Intro/Redump). Pode repetir.',
       '      --recursive, -r   Desce nas subpastas.',
+      '      --apply           Executa o plano. Sem isto, nada é alterado.',
+      '      --include-filename-matches',
+      '                        Renomeia também o que foi identificado só pelo nome.',
+      '',
+      '  romorg undo <journal.jsonl>',
+      '      Desfaz um lote aplicado, usando o journal que ele gravou.',
       '',
       'Exemplos:',
       '  romorg scan ~/roms/snes --system snes --libretro',
-      '  romorg scan ~/roms/nes --system nes --dat nes.dat --recursive',
+      '  romorg scan ~/roms/snes --system snes --libretro --apply',
+      '  romorg undo ~/roms/snes/.romorg/journal/2026-07-29T10-00-00-000Z.jsonl',
     ].join('\n'),
   )
 }
@@ -201,6 +287,8 @@ if (command === 'systems') {
   await listSystems()
 } else if (command === 'scan') {
   process.exitCode = await scan(rest)
+} else if (command === 'undo') {
+  process.exitCode = await undo(rest)
 } else {
   printUsage()
   process.exitCode = command === undefined ? 0 : 1

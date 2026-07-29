@@ -58,3 +58,23 @@ export {
   type IdentificationMethod,
 } from './identify/identify.ts'
 export { scanDirectory, type ScanOptions, type ScanSummary } from './identify/scan.ts'
+
+export {
+  isCaseOnlyRename,
+  planRenames,
+  type PlannedOperation,
+  type PlanOptions,
+  type RenamePlan,
+  type SkippedFile,
+  type SkipReason,
+} from './plan/plan.ts'
+export {
+  executePlan,
+  readJournal,
+  undoFromJournal,
+  type ExecuteOptions,
+  type ExecutionFailure,
+  type ExecutionResult,
+  type JournalRecord,
+  type UndoResult,
+} from './plan/execute.ts'
