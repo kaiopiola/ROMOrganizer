@@ -7,9 +7,17 @@
   "byteOrder": {
     "canonicalMagic": "80371240",
     "variants": [
-      { "id": "v64", "magic": "37804012", "swapSize": 2 },
-      { "id": "n64", "magic": "40123780", "swapSize": 4 }
+      {
+        "id": "v64",
+        "magic": "37804012",
+        "swapSize": 2
+      },
+      {
+        "id": "n64",
+        "magic": "40123780",
+        "swapSize": 4
+      }
     ]
   },
-  "defaultTemplate": "{title} ({region}){revision}.z64"
+  "defaultTemplate": "{title}[ ({region})][ ({revision})].z64"
 }
