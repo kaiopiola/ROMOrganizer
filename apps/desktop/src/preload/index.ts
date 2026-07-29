@@ -20,6 +20,9 @@ import type {
  * calculou a partir do próprio scan.
  */
 const api = {
+  /** A janela usa titleBarStyle 'hiddenInset' no macOS; a interface precisa saber disso. */
+  platform: process.platform,
+
   listSystems: (): Promise<SystemRulePack[]> => ipcRenderer.invoke('systems:list'),
 
   libraries: {

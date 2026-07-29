@@ -1,6 +1,7 @@
 import { readdir } from 'node:fs/promises'
 import { basename } from 'node:path'
-import { dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import type { IpcMainInvokeEvent } from 'electron'
 import {
   DatIndex,
   executePlan,
@@ -59,6 +60,39 @@ function toRow(identification: Identification): ScanRow {
     headerStripped: identification.method === 'hash-headerless',
     byteOrderVariant: identification.byteOrder.variantId,
   }
+}
+
+/**
+ * Confirmação nativa antes de escrever em disco.
+ *
+ * O texto fica aqui em vez de vir do renderer para a decisão e a mensagem não se separarem —
+ * o idioma sai do próprio sistema.
+ */
+async function confirmApply(event: IpcMainInvokeEvent, count: number): Promise<boolean> {
+  const isPortuguese = app.getLocale().toLowerCase().startsWith('pt')
+  const plural = count === 1 ? '' : 's'
+
+  const options = {
+    type: 'question' as const,
+    buttons: isPortuguese ? ['Cancelar', 'Renomear'] : ['Cancel', 'Rename'],
+    // O botão seguro é o padrão, e Esc cancela.
+    defaultId: 1,
+    cancelId: 0,
+    message: isPortuguese
+      ? `Renomear ${count} arquivo${plural}?`
+      : `Rename ${count} file${count === 1 ? '' : 's'}?`,
+    detail: isPortuguese
+      ? 'Dá para desfazer depois, pelo histórico.'
+      : 'This can be undone later from the history.',
+  }
+
+  const window = BrowserWindow.fromWebContents(event.sender)
+  const result =
+    window === null
+      ? await dialog.showMessageBox(options)
+      : await dialog.showMessageBox(window, options)
+
+  return result.response === 1
 }
 
 export function registerIpc(
@@ -154,10 +188,6 @@ export function registerIpc(
 
         const summary = await scanDirectory(library.directory, system, index, {
           recursive: library.recursive,
-          ...(library.template !== undefined &&
-            library.template !== '' && {
-              template: library.template,
-            }),
           signal: controller.signal,
           onProgress: (done, total, current) => {
             const progress: ScanProgress = {
@@ -261,6 +291,17 @@ export function registerIpc(
           ? plan.operations
           : plan.operations.filter((operation) => selected.has(rowIdOf(operation.identification)))
 
+      if (operations.length === 0) {
+        return { applied: 0, failed: [], journalPath: null, cancelled: false }
+      }
+
+      // A confirmação acontece aqui, e não no renderer, por dois motivos: `window.confirm`
+      // não é confiável no Electron, e a última barreira antes de escrever em disco não deve
+      // depender da camada que não tem acesso a disco.
+      if (!(await confirmApply(event, operations.length))) {
+        return { applied: 0, failed: [], journalPath: null, cancelled: true }
+      }
+
       const result = await executePlan(
         { operations, skipped: plan.skipped },
         {
@@ -281,6 +322,7 @@ export function registerIpc(
         applied: result.applied.length,
         failed: result.failed.map((failure) => ({ from: failure.from, reason: failure.reason })),
         journalPath: result.journalPath,
+        cancelled: false,
       }
     },
   )

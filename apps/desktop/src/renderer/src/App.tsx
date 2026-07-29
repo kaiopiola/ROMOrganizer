@@ -120,12 +120,13 @@ export function App() {
 
   async function applyPlan(): Promise<void> {
     if (active === null || plan === null || plan.operations.length === 0) return
-    if (!window.confirm(t.applyConfirm(plan.operations.length))) return
 
+    // A confirmação é do main: ele mostra o diálogo nativo e só então escreve.
     setBusy('applying')
     setApplyProgress(null)
     await withErrorHandling(async () => {
       const result: ApplyResultDto = await window.romorg.plan.apply(active.id, planOptions, null)
+      if (result.cancelled) return
       setNotice(t.applied(result.applied))
       if (result.failed.length > 0) {
         setError(result.failed.map((failure) => failure.reason).join('\n'))
@@ -168,7 +169,11 @@ export function App() {
       />
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="border-b border-neutral-800 px-8 py-5">
+        <header
+          className={`border-b border-neutral-800 px-8 ${
+            window.romorg.platform === 'darwin' ? 'pt-9 pb-5' : 'py-5'
+          }`}
+        >
           <h1 className="text-lg font-semibold">{active?.directory ?? t.appName}</h1>
           <p className="text-sm text-neutral-400">
             {active === null ? t.tagline : (activeSystem?.name ?? active.systemId)}

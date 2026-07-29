@@ -71,6 +71,8 @@ export interface ApplyResultDto {
   applied: number
   failed: { from: string; reason: string }[]
   journalPath: string | null
+  /** O usuário recusou a confirmação — não é erro, e a interface não deve reportar como tal. */
+  cancelled: boolean
 }
 
 export interface JournalSummary {

@@ -23,9 +23,17 @@ export function LibrarySidebar({ systems, libraries, activeId, onSelect, onChang
     onSelect(library.id)
   }
 
+  // No macOS a janela usa `hiddenInset`: os botões de semáforo flutuam sobre o conteúdo, no
+  // canto superior esquerdo — exatamente onde fica esta barra lateral.
+  const isMac = window.romorg.platform === 'darwin'
+
   return (
     <aside className="flex w-72 shrink-0 flex-col border-r border-neutral-800 bg-neutral-900/40">
-      <div className="px-4 py-5">
+      <div
+        className={isMac ? 'px-4 pt-11 pb-4' : 'px-4 py-5'}
+        // A faixa livre acima do título serve para arrastar a janela.
+        style={isMac ? ({ WebkitAppRegion: 'drag' } as React.CSSProperties) : undefined}
+      >
         <h2 className="text-xs font-medium tracking-widest text-neutral-500 uppercase">
           {t.librariesTitle}
         </h2>
