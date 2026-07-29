@@ -71,6 +71,11 @@ const api = {
       ipcRenderer.invoke('journals:undo', journalPath),
   },
 
+  icons: {
+    forSystems: (systemIds: string[]): Promise<Record<string, string | null>> =>
+      ipcRenderer.invoke('icons:forSystems', systemIds),
+  },
+
   dats: {
     chooseLocal: (): Promise<string[]> => ipcRenderer.invoke('dats:chooseLocal'),
     status: (): Promise<{ systemId: string; updatedAt: string }[]> =>

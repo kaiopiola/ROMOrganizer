@@ -92,6 +92,8 @@ Veja o [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md).
 - Os DATs usados são **metadados** (nome, hash, região) — nunca conteúdo de jogo. Os que vêm do
   [libretro-database](https://github.com/libretro/libretro-database) estão sob CC BY-SA 4.0 e são
   baixados sob demanda pelo usuário, não redistribuídos com o app.
+- Os ícones de console vêm do [retroarch-assets](https://github.com/libretro/retroarch-assets)
+  (CC BY 4.0), também baixados sob demanda e guardados em cache local.
 - Nenhuma ROM, BIOS ou header proprietário entra neste repositório, **incluindo fixtures de
   teste**, que são geradas sinteticamente.
 - Issues e PRs pedindo ou oferecendo ROMs são fechados sem discussão.

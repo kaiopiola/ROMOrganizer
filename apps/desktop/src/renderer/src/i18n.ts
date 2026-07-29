@@ -27,6 +27,16 @@ const ptBR = {
   revealLibrary: 'Abrir pasta',
   recursive: 'Incluir subpastas',
 
+  queueTitle: 'Fila',
+  queueClear: 'Limpar concluídos',
+  jobScan: 'Identificar',
+  jobApply: 'Aplicar',
+  jobPending: 'na fila',
+  jobRunning: 'em andamento',
+  jobDone: 'concluído',
+  jobFailed: 'falhou',
+  jobCancelled: 'cancelado',
+
   scanTitle: 'Identificação',
   scan: 'Identificar',
   scanning: 'Identificando…',
@@ -118,6 +128,16 @@ const en: Dictionary = {
   removeLibrary: 'Unlink',
   revealLibrary: 'Open folder',
   recursive: 'Include subfolders',
+
+  queueTitle: 'Queue',
+  queueClear: 'Clear finished',
+  jobScan: 'Identify',
+  jobApply: 'Apply',
+  jobPending: 'queued',
+  jobRunning: 'running',
+  jobDone: 'done',
+  jobFailed: 'failed',
+  jobCancelled: 'cancelled',
 
   scanTitle: 'Identification',
   scan: 'Identify',

@@ -15,6 +15,7 @@ import {
   type SystemRegistry,
 } from '@romorg/core'
 import type { DatCache } from './dat-cache.ts'
+import type { IconCache } from './icon-cache.ts'
 import { loadLocalDat } from './dat-cache.ts'
 import {
   hashCachePathFor,
@@ -108,6 +109,7 @@ export function registerIpc(
   registry: SystemRegistry,
   libraries: LibraryStore,
   datCache: DatCache,
+  iconCache: IconCache,
 ): void {
   const states = new Map<string, LibraryState>()
 
@@ -417,4 +419,14 @@ export function registerIpc(
   })
 
   ipcMain.handle('dats:status', () => datCache.status())
+
+  ipcMain.handle('icons:forSystems', async (_event, systemIds: string[]) => {
+    const entries = await Promise.all(
+      systemIds.map(async (systemId) => {
+        const system = registry.get(systemId)
+        return [systemId, system === undefined ? null : await iconCache.getFor(system)] as const
+      }),
+    )
+    return Object.fromEntries(entries)
+  })
 }

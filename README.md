@@ -92,6 +92,8 @@ test. See [CONTRIBUTING.md](CONTRIBUTING.md).
 - The DATs it uses are **metadata** (name, hash, region) — never game content. Those fetched
   from [libretro-database](https://github.com/libretro/libretro-database) are licensed
   CC BY-SA 4.0 and are downloaded on demand by the user, not redistributed with the app.
+- Console icons come from [retroarch-assets](https://github.com/libretro/retroarch-assets)
+  (CC BY 4.0), also fetched on demand and cached locally.
 - No ROM, BIOS, or proprietary header belongs in this repository, **including test fixtures**,
   which are generated synthetically.
 - Issues and pull requests asking for or offering ROMs are closed without discussion.

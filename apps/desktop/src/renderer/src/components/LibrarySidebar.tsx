@@ -1,18 +1,31 @@
 import { useState } from 'react'
 import type { SystemRulePack } from '@romorg/core/browser'
 import type { Library } from '../../../main/libraries.ts'
+import type { Job } from '../useJobQueue.ts'
 import { t } from '../i18n.ts'
 import { SystemPickerModal } from './SystemPickerModal.tsx'
+import { SystemIcon } from './SystemIcon.tsx'
 
 interface Props {
   systems: SystemRulePack[]
   libraries: Library[]
+  icons: Record<string, string | null>
   activeId: string | null
+  /** Trabalho em andamento ou na fila para cada biblioteca. */
+  jobFor: (libraryId: string) => Job | undefined
   onSelect: (id: string) => void
   onChanged: () => Promise<void>
 }
 
-export function LibrarySidebar({ systems, libraries, activeId, onSelect, onChanged }: Props) {
+export function LibrarySidebar({
+  systems,
+  libraries,
+  icons,
+  activeId,
+  jobFor,
+  onSelect,
+  onChanged,
+}: Props) {
   const [adding, setAdding] = useState(false)
 
   async function addLibrary(systemId: string): Promise<void> {
@@ -43,21 +56,49 @@ export function LibrarySidebar({ systems, libraries, activeId, onSelect, onChang
         {libraries.map((library) => {
           const system = systems.find((candidate) => candidate.id === library.systemId)
           const isActive = library.id === activeId
+          const job = jobFor(library.id)
 
           return (
             <li key={library.id}>
               <button
                 type="button"
                 onClick={() => onSelect(library.id)}
-                className={`w-full rounded-md px-3 py-2 text-left ${
+                className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left ${
                   isActive ? 'bg-neutral-800' : 'hover:bg-neutral-800/50'
                 }`}
               >
-                <span className="block truncate text-sm font-medium">
-                  {system?.name ?? library.systemId}
-                </span>
-                <span className="block truncate text-xs text-neutral-500" dir="rtl">
-                  {library.directory}
+                <SystemIcon source={icons[library.systemId] ?? null} className="size-7 shrink-0" />
+
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">
+                    {system?.name ?? library.systemId}
+                  </span>
+                  <span className="block truncate text-xs text-neutral-500" dir="rtl">
+                    {library.directory}
+                  </span>
+
+                  {job !== undefined && (
+                    <span className="mt-1 block">
+                      <span className="block h-0.5 w-full overflow-hidden rounded bg-neutral-700">
+                        <span
+                          className={`block h-full transition-[width] ${
+                            job.status === 'pending' ? 'bg-neutral-500' : 'bg-emerald-500'
+                          }`}
+                          style={{
+                            width:
+                              job.status === 'pending'
+                                ? '100%'
+                                : `${(job.done / Math.max(job.total, 1)) * 100}%`,
+                          }}
+                        />
+                      </span>
+                      <span className="mt-0.5 block text-[0.65rem] text-neutral-500">
+                        {job.status === 'pending'
+                          ? t.jobPending
+                          : `${job.kind === 'scan' ? t.jobScan : t.jobApply} ${job.done}/${job.total}`}
+                      </span>
+                    </span>
+                  )}
                 </span>
               </button>
             </li>

@@ -1,203 +1,192 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { SystemRulePack } from '@romorg/core/browser'
 import type { Library } from '../../main/libraries.ts'
-import type {
-  ApplyProgress,
-  ApplyResultDto,
-  JournalSummary,
-  PlanDto,
-  ScanProgress,
-  ScanSummaryDto,
-} from '../../main/ipc-types.ts'
+import type { JournalSummary, PlanDto, ScanSummaryDto } from '../../main/ipc-types.ts'
 import { t } from './i18n.ts'
+import { useJobQueue, type JobOutcome } from './useJobQueue.ts'
 import { LibrarySidebar } from './components/LibrarySidebar.tsx'
 import { ScanTable } from './components/ScanTable.tsx'
 import { PlanPanel } from './components/PlanPanel.tsx'
 import { HistoryPanel } from './components/HistoryPanel.tsx'
+import { QueuePanel } from './components/QueuePanel.tsx'
 import { TemplateEditor } from './components/TemplateEditor.tsx'
 import { LibraryToolbar } from './components/LibraryToolbar.tsx'
+import { SystemIcon } from './components/SystemIcon.tsx'
 
 export function App() {
   const [systems, setSystems] = useState<SystemRulePack[]>([])
   const [libraries, setLibraries] = useState<Library[]>([])
+  const [icons, setIcons] = useState<Record<string, string | null>>({})
   const [activeId, setActiveId] = useState<string | null>(null)
 
   const [scan, setScan] = useState<ScanSummaryDto | null>(null)
-  const [progress, setProgress] = useState<ScanProgress | null>(null)
-  const [applyProgress, setApplyProgress] = useState<ApplyProgress | null>(null)
   const [plan, setPlan] = useState<PlanDto | null>(null)
   const [journals, setJournals] = useState<JournalSummary[]>([])
+  const [selectedIds, setSelectedIds] = useState<Set<string> | null>(null)
 
   const [useLibretro, setUseLibretro] = useState(true)
   const [localDatPaths, setLocalDatPaths] = useState<string[]>([])
   const [includeFilenameMatches, setIncludeFilenameMatches] = useState(false)
   const [allowAmbiguous, setAllowAmbiguous] = useState(false)
 
-  const [busy, setBusy] = useState<'scanning' | 'applying' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
   const active = libraries.find((library) => library.id === activeId) ?? null
   const activeSystem = systems.find((system) => system.id === active?.systemId) ?? null
 
-  useEffect(() => {
-    void window.romorg.listSystems().then(setSystems)
-    void window.romorg.libraries.list().then(setLibraries)
+  const template = active?.template ?? ''
+  const quarantineDirectory = active?.quarantineDirectory ?? ''
+  const planOptions = { includeFilenameMatches, allowAmbiguous, template, quarantineDirectory }
+  const scanOptions = { useLibretro, localDatPaths }
 
-    const offScan = window.romorg.scan.onProgress(setProgress)
-    const offApply = window.romorg.plan.onProgress(setApplyProgress)
-    return () => {
-      offScan()
-      offApply()
-    }
+  const refreshLibraries = useCallback(async () => {
+    setLibraries(await window.romorg.libraries.list())
   }, [])
 
   const refreshJournals = useCallback(async (libraryId: string) => {
     setJournals(await window.romorg.journals.list(libraryId))
   }, [])
 
-  // Trocar de biblioteca zera o que era da anterior: mostrar um plano de outra pasta seria
-  // a forma mais fácil de o usuário aplicar a coisa errada.
+  /**
+   * Recarrega a tela quando um trabalho da fila termina.
+   *
+   * Só reage ao que é da biblioteca aberta: a fila pode estar processando outra, e trocar o
+   * conteúdo da tela por causa de um trabalho que o usuário não está olhando seria confuso.
+   */
+  const handleJobFinished = useCallback(
+    async (outcome: JobOutcome) => {
+      if (outcome.kind === 'apply') {
+        await refreshJournals(outcome.libraryId)
+        if (outcome.libraryId === activeId) {
+          setNotice(
+            outcome.cancelled === true
+              ? t.appliedPartial(outcome.applied ?? 0)
+              : t.applied(outcome.applied ?? 0),
+          )
+        }
+        // Depois de renomear, os nomes em tela não valem mais.
+        await window.romorg.scan.start(outcome.libraryId, scanOptions)
+      }
+
+      if (outcome.libraryId !== activeId) return
+
+      const result = await window.romorg.plan.build(outcome.libraryId, planOptions)
+      setScan({ libraryId: outcome.libraryId, rows: result.rows, failures: [] })
+      setPlan(result.plan)
+      setSelectedIds(null)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeId, refreshJournals, useLibretro, localDatPaths, template, quarantineDirectory],
+  )
+
+  const queue = useJobQueue(handleJobFinished)
+
+  useEffect(() => {
+    void window.romorg.listSystems().then(async (list) => {
+      setSystems(list)
+      setIcons(await window.romorg.icons.forSystems(list.map((system) => system.id)))
+    })
+    void refreshLibraries()
+  }, [refreshLibraries])
+
+  // Trocar de biblioteca zera o que era da anterior: mostrar um plano de outra pasta seria a
+  // forma mais fácil de o usuário aplicar a coisa errada.
   useEffect(() => {
     setScan(null)
     setPlan(null)
-    setProgress(null)
     setNotice(null)
+    setSelectedIds(null)
     if (activeId !== null) void refreshJournals(activeId)
     else setJournals([])
   }, [activeId, refreshJournals])
 
-  const template = active?.template ?? ''
-  const quarantineDirectory = active?.quarantineDirectory ?? ''
-  const planOptions = { includeFilenameMatches, allowAmbiguous, template, quarantineDirectory }
-
-  /** Ids escolhidos para aplicar. `null` significa "todos do plano". */
-  const [selectedIds, setSelectedIds] = useState<Set<string> | null>(null)
-
-  /**
-   * Trocar o padrão de nomes não descarta o scan.
-   *
-   * Identificar custa hash de disco inteiro; o nome proposto sai de dados já em memória. O
-   * main recalcula os dois — linhas e plano — e devolve juntos, para a tabela nunca mostrar
-   * um nome diferente do que o plano fará.
-   */
-  async function updateQuarantine(next: string): Promise<void> {
-    if (active === null) return
-    await window.romorg.libraries.update(active.id, { quarantineDirectory: next })
-    setLibraries(await window.romorg.libraries.list())
-  }
-
-  async function updateTemplate(next: string): Promise<void> {
-    if (active === null) return
-    await window.romorg.libraries.update(active.id, { template: next })
-    setLibraries(await window.romorg.libraries.list())
-  }
-
-  async function withErrorHandling(action: () => Promise<void>): Promise<void> {
-    setError(null)
-    try {
-      await action()
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
-    }
-  }
-
-  async function runScan(): Promise<void> {
-    if (active === null) return
-    setBusy('scanning')
-    setNotice(null)
-    await withErrorHandling(async () => {
-      const summary = await window.romorg.scan.start(active.id, { useLibretro, localDatPaths })
-      const result = await window.romorg.plan.build(active.id, planOptions)
-      setScan({ ...summary, rows: result.rows })
-      setPlan(result.plan)
-    })
-    setBusy(null)
-    setProgress(null)
-  }
-
-  // Extraído para o ESLint conseguir checar a dependência estaticamente.
   const hasScan = scan !== null
 
   // O plano é recalculado no main a cada mudança de opção — a interface nunca decide sozinha
   // o que vai para o disco.
   useEffect(() => {
-    if (active === null || scan === null) return
-    void window.romorg.plan.build(active.id, planOptions).then((result) => {
+    if (activeId === null || !hasScan) return
+    void window.romorg.plan.build(activeId, planOptions).then((result) => {
       setPlan(result.plan)
       setScan((current) => (current === null ? null : { ...current, rows: result.rows }))
       // Um plano novo pode não conter os ids escolhidos antes; voltar para "todos" é o
       // comportamento seguro — o usuário vê a contagem e decide de novo.
       setSelectedIds(null)
     })
-    // `scan` fora das dependências de propósito: este efeito o atualiza, e incluí-lo
-    // criaria um laço infinito.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [includeFilenameMatches, allowAmbiguous, template, quarantineDirectory, activeId, hasScan])
 
-  async function applyPlan(): Promise<void> {
-    if (active === null || plan === null || plan.operations.length === 0) return
+  async function updateLibrary(changes: Partial<Library>): Promise<void> {
+    if (active === null) return
+    await window.romorg.libraries.update(active.id, changes)
+    await refreshLibraries()
+  }
 
-    // A confirmação é do main: ele mostra o diálogo nativo e só então escreve.
-    setBusy('applying')
-    setApplyProgress(null)
-    await withErrorHandling(async () => {
-      const result: ApplyResultDto = await window.romorg.plan.apply(
-        active.id,
-        planOptions,
-        selectedIds === null ? null : [...selectedIds],
-      )
-      setNotice(result.cancelled ? t.appliedPartial(result.applied) : t.applied(result.applied))
-      if (result.failed.length > 0) {
-        setError(result.failed.map((failure) => failure.reason).join('\n'))
-      }
-      await refreshJournals(active.id)
-      // Reidentifica: depois do rename, os nomes em tela não valem mais.
-      const summary = await window.romorg.scan.start(active.id, { useLibretro, localDatPaths })
-      const rebuilt = await window.romorg.plan.build(active.id, planOptions)
-      setScan({ ...summary, rows: rebuilt.rows })
-      setPlan(rebuilt.plan)
+  function enqueue(kind: 'scan' | 'apply'): void {
+    if (active === null) return
+    setError(null)
+    setNotice(null)
+    queue.enqueue({
+      libraryId: active.id,
+      kind,
+      scanOptions,
+      planOptions,
+      selectedIds: selectedIds === null ? null : [...selectedIds],
     })
-    setBusy(null)
-    setApplyProgress(null)
   }
 
   async function undo(journalPath: string): Promise<void> {
     if (active === null) return
-    await withErrorHandling(async () => {
+    setError(null)
+    try {
       const result = await window.romorg.journals.undo(journalPath)
       setNotice(t.undone(result.restored))
       if (result.failed.length > 0) {
         setError(result.failed.map((failure) => failure.reason).join('\n'))
       }
       await refreshJournals(active.id)
-      const summary = await window.romorg.scan.start(active.id, { useLibretro, localDatPaths })
+      await window.romorg.scan.start(active.id, scanOptions)
       const rebuilt = await window.romorg.plan.build(active.id, planOptions)
-      setScan({ ...summary, rows: rebuilt.rows })
+      setScan({ libraryId: active.id, rows: rebuilt.rows, failures: [] })
       setPlan(rebuilt.plan)
-    })
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    }
   }
+
+  const activeJob = active === null ? undefined : queue.activeFor(active.id)
+  const isMac = window.romorg.platform === 'darwin'
 
   return (
     <div className="flex h-screen bg-neutral-950 text-neutral-100">
       <LibrarySidebar
         systems={systems}
         libraries={libraries}
+        icons={icons}
         activeId={activeId}
+        jobFor={queue.activeFor}
         onSelect={setActiveId}
-        onChanged={async () => setLibraries(await window.romorg.libraries.list())}
+        onChanged={refreshLibraries}
       />
 
       <main className="flex min-w-0 flex-1 flex-col">
         <header
-          className={`border-b border-neutral-800 px-8 ${
-            window.romorg.platform === 'darwin' ? 'pt-9 pb-5' : 'py-5'
+          className={`flex items-center gap-4 border-b border-neutral-800 px-8 ${
+            isMac ? 'pt-9 pb-5' : 'py-5'
           }`}
         >
-          <h1 className="text-lg font-semibold">{active?.directory ?? t.appName}</h1>
-          <p className="text-sm text-neutral-400">
-            {active === null ? t.tagline : (activeSystem?.name ?? active.systemId)}
-          </p>
+          {active !== null && (
+            <SystemIcon source={icons[active.systemId] ?? null} className="size-10 shrink-0" />
+          )}
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-semibold">
+              {activeSystem?.name ?? (active === null ? t.appName : active.systemId)}
+            </h1>
+            <p className="truncate text-sm text-neutral-400" title={active?.directory}>
+              {active?.directory ?? t.tagline}
+            </p>
+          </div>
         </header>
 
         {active === null ? (
@@ -208,32 +197,18 @@ export function App() {
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-8 py-6">
             <LibraryToolbar
               library={active}
-              disabled={busy !== null}
-              onChanged={async () => setLibraries(await window.romorg.libraries.list())}
+              disabled={activeJob !== undefined}
+              onChanged={refreshLibraries}
             />
 
             <section className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => void runScan()}
-                disabled={busy !== null}
-                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium hover:bg-emerald-500 disabled:opacity-50"
+                onClick={() => enqueue('scan')}
+                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium hover:bg-emerald-500"
               >
-                {busy === 'scanning' ? t.scanning : t.scan}
+                {activeJob?.kind === 'scan' ? t.scanning : t.scan}
               </button>
-              {busy !== null && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    void (busy === 'scanning'
-                      ? window.romorg.scan.cancel(active.id)
-                      : window.romorg.plan.cancel(active.id))
-                  }
-                  className="rounded-md border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-800"
-                >
-                  {t.cancel}
-                </button>
-              )}
 
               <label className="flex items-center gap-2 text-sm text-neutral-300">
                 <input
@@ -262,26 +237,12 @@ export function App() {
               )}
             </section>
 
-            {(() => {
-              const current =
-                busy === 'scanning' ? progress : busy === 'applying' ? applyProgress : null
-              if (current === null) return null
-
-              const percent = (current.done / Math.max(current.total, 1)) * 100
-              return (
-                <div>
-                  <div className="h-1 w-full overflow-hidden rounded bg-neutral-800">
-                    <div
-                      className="h-full bg-emerald-500 transition-[width]"
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-                  <p className="mt-1 truncate text-xs text-neutral-500">
-                    {current.done}/{current.total} · {current.currentFile}
-                  </p>
-                </div>
-              )
-            })()}
+            <QueuePanel
+              jobs={queue.jobs}
+              libraries={libraries}
+              onCancel={queue.cancel}
+              onClearFinished={queue.clearFinished}
+            />
 
             {error !== null && (
               <p className="rounded-md border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-300">
@@ -297,7 +258,7 @@ export function App() {
             <TemplateEditor
               value={template}
               systemDefault={activeSystem?.defaultTemplate ?? '{title}.{ext}'}
-              onCommit={(template) => void updateTemplate(template)}
+              onCommit={(next) => void updateLibrary({ template: next })}
             />
 
             {scan !== null && <ScanTable rows={scan.rows} />}
@@ -305,16 +266,16 @@ export function App() {
             {plan !== null && (
               <PlanPanel
                 plan={plan}
-                busy={busy === 'applying'}
+                busy={activeJob?.kind === 'apply'}
                 includeFilenameMatches={includeFilenameMatches}
                 allowAmbiguous={allowAmbiguous}
                 onToggleFilenameMatches={setIncludeFilenameMatches}
                 onToggleAmbiguous={setAllowAmbiguous}
                 quarantineDirectory={quarantineDirectory}
-                onQuarantineChange={(next) => void updateQuarantine(next)}
+                onQuarantineChange={(next) => void updateLibrary({ quarantineDirectory: next })}
                 selectedIds={selectedIds}
                 onSelectionChange={setSelectedIds}
-                onApply={() => void applyPlan()}
+                onApply={() => enqueue('apply')}
               />
             )}
 

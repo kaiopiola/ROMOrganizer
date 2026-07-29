@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { app, BrowserWindow, shell } from 'electron'
 import { loadRulePacksFrom, SystemRegistry } from '@romorg/core'
 import { DatCache } from './dat-cache.ts'
+import { IconCache } from './icon-cache.ts'
 import { LibraryStore } from './libraries.ts'
 import { registerIpc } from './ipc.ts'
 
@@ -57,8 +58,9 @@ void app.whenReady().then(async () => {
   const registry = new SystemRegistry(await loadRulePacksFrom(rulePacksDirectory()))
   const libraries = new LibraryStore(join(app.getPath('userData'), 'libraries.json'))
   const datCache = new DatCache(join(app.getPath('userData'), 'dat-cache'))
+  const iconCache = new IconCache(join(app.getPath('userData'), 'icons'))
 
-  registerIpc(registry, libraries, datCache)
+  registerIpc(registry, libraries, datCache, iconCache)
   createWindow()
 
   app.on('activate', () => {
