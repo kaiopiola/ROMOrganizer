@@ -81,27 +81,25 @@ function roundedRectDistance(
   return Math.hypot(Math.max(dx, 0), Math.max(dy, 0)) + Math.min(Math.max(dx, dy), 0) - radius
 }
 
-const LEFT = 0.17
-const RIGHT = 0.83
-const TOP = 0.09
-const BOTTOM = 0.91
-const CHAMFER = 0.11
-const NOTCH = 0.05
+const LEFT = 0.16
+const RIGHT = 0.84
+const TOP = 0.14
+const BOTTOM = 0.86
+const CHAMFER = 0.055
 
 /**
- * Silhueta do cartucho de SNES: corpo alto, ombros chanfrados e uma reentrância nas laterais
- * logo abaixo deles — é essa reentrância que distingue a forma de um retângulo qualquer.
+ * Silhueta do cartucho: um retângulo alto com os cantos de cima cortados.
+ *
+ * O corte é a única quebra da forma. Uma versão anterior tinha também a reentrância lateral do
+ * cartucho de SNES, mas ela deixava o topo mais largo que o corpo e a leitura em tamanho pequeno
+ * virava cabeça e ombros — o contrário do que um ícone precisa fazer.
  */
 const CARTRIDGE: readonly Point[] = [
   { x: LEFT + CHAMFER, y: TOP },
   { x: RIGHT - CHAMFER, y: TOP },
   { x: RIGHT, y: TOP + CHAMFER },
-  { x: RIGHT, y: 0.28 },
-  { x: RIGHT - NOTCH, y: 0.34 },
-  { x: RIGHT - NOTCH, y: BOTTOM },
-  { x: LEFT + NOTCH, y: BOTTOM },
-  { x: LEFT + NOTCH, y: 0.34 },
-  { x: LEFT, y: 0.28 },
+  { x: RIGHT, y: BOTTOM },
+  { x: LEFT, y: BOTTOM },
   { x: LEFT, y: TOP + CHAMFER },
 ]
 
@@ -118,15 +116,15 @@ function inkAt(u: number, v: number): boolean {
 
   if (Math.abs(polygonDistance(u, v, CARTRIDGE)) < half) return true
 
-  // Etiqueta.
-  if (Math.abs(roundedRectDistance(u, v, 0.5, 0.46, 0.2, 0.14, 0.02)) < half) return true
+  // Etiqueta: larga e na metade de cima, como na peça real.
+  if (Math.abs(roundedRectDistance(u, v, 0.5, 0.38, 0.23, 0.14, 0.02)) < half) return true
 
   // Ranhuras do conector, na base — traços verticais, que é o que elas são de fato.
-  if (v > 0.72 && v < 0.84) {
-    const period = 0.078
-    const phase = (u - 0.3) / period
+  if (v > 0.63 && v < 0.79) {
+    const period = 0.084
+    const phase = (u - 0.29) / period
     const onStripe = Math.abs(phase - Math.round(phase)) * period < half
-    if (u > 0.29 && u < 0.71 && onStripe) return true
+    if (u > 0.28 && u < 0.72 && onStripe) return true
   }
 
   return false
