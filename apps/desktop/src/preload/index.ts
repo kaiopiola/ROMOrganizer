@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { SystemRulePack } from '@romorg/core'
 import type { Library, LibraryChanges, Preferences } from '../main/libraries.ts'
 import type { UpdateStatus } from '../main/updater.ts'
+import type { ChangelogEntry } from '../main/changelog.ts'
 import type {
   ApplyProgress,
   ApplyResultDto,
@@ -27,7 +28,29 @@ const api = {
   /** A janela usa titleBarStyle 'hiddenInset' no macOS; a interface precisa saber disso. */
   platform: process.platform,
 
+  /** Idioma escolhido, resolvido pelo main antes da janela abrir. */
+  language:
+    process.argv.find((argument) => argument.startsWith('--romorg-language='))?.split('=')[1] ??
+    'auto',
+
   listSystems: (): Promise<SystemRulePack[]> => ipcRenderer.invoke('systems:list'),
+
+  app: {
+    info: (): Promise<{
+      version: string
+      electron: string
+      node: string
+      platform: string
+      arch: string
+      userData: string
+      systems: number
+      language: string
+    }> => ipcRenderer.invoke('app:info'),
+    changelog: (): Promise<ChangelogEntry[]> => ipcRenderer.invoke('app:changelog'),
+    openPath: (path: string): Promise<void> => ipcRenderer.invoke('app:openPath', path),
+    openExternal: (url: string): Promise<void> => ipcRenderer.invoke('app:openExternal', url),
+    relaunch: (): Promise<void> => ipcRenderer.invoke('app:relaunch'),
+  },
 
   updates: {
     check: (): Promise<UpdateStatus> => ipcRenderer.invoke('updates:check'),

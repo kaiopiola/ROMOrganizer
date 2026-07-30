@@ -42,6 +42,8 @@ A ordem aqui é:
    os bytes trocados).
 4. **Heurística de nome** — só como último recurso, e sinalizada como tal na interface.
 
+Descrição completa do que o app faz em [docs/features.pt-BR.md](docs/features.pt-BR.md).
+
 Nada muda sem você revisar: todo lote passa por **dry-run**, e toda execução grava um journal
 que permite **desfazer**.
 

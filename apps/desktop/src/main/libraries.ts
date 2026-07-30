@@ -38,9 +38,18 @@ export type LibraryChanges = Partial<Omit<Library, 'id'>>
 export interface Preferences {
   useLibretro: boolean
   localDatPaths: string[]
+  /** `auto` segue o idioma do sistema. */
+  language: 'auto' | 'pt-BR' | 'en'
+  /** Procurar versão nova ao abrir o app. */
+  checkUpdatesOnStart: boolean
 }
 
-const DEFAULT_PREFERENCES: Preferences = { useLibretro: true, localDatPaths: [] }
+const DEFAULT_PREFERENCES: Preferences = {
+  useLibretro: true,
+  localDatPaths: [],
+  language: 'auto',
+  checkUpdatesOnStart: true,
+}
 
 interface LibrariesFile {
   version: 1

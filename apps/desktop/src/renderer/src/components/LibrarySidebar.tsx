@@ -150,6 +150,16 @@ export function LibrarySidebar({
 
         <button
           type="button"
+          onClick={() => onViewChange('settings')}
+          className={`mb-2 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm ${
+            view === 'settings' ? 'bg-neutral-800' : 'hover:bg-neutral-800/50'
+          }`}
+        >
+          {t.settingsTitle}
+        </button>
+
+        <button
+          type="button"
           onClick={() => setAdding(true)}
           className="w-full rounded-md border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-800"
         >

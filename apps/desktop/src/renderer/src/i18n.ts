@@ -105,6 +105,36 @@ const ptBR = {
   skipCollision: 'já existe um arquivo com esse nome',
   skipDuplicateTarget: 'dois arquivos apontam para o mesmo nome',
 
+  settingsTitle: 'Configurações',
+  settingsHint: 'Preferências do app, versão e atualizações.',
+  settingsGeneral: 'Geral',
+  settingsUpdates: 'Atualizações',
+  settingsChangelog: 'Novidades',
+  settingsAbout: 'Sobre',
+  settingsLanguage: 'Idioma',
+  settingsLanguageAuto: 'Do sistema',
+  settingsLanguageHint: 'Trocar o idioma reinicia o app.',
+  settingsCheckOnStart: 'Procurar versão nova ao abrir',
+  settingsData: 'Dados do app',
+  settingsDataHint: 'Onde ficam as bibliotecas, o cache de DATs e os ícones baixados.',
+  settingsOpenDataFolder: 'Abrir pasta de dados',
+  settingsCheckNow: 'Verificar agora',
+  settingsChecking: 'Verificando…',
+  settingsUpToDate: 'Você está na versão mais recente.',
+  settingsCurrentVersion: (version: string) => `Versão atual: ${version}`,
+  settingsMacUnsigned:
+    'Esta versão do macOS não é assinada, então o app não instala a atualização sozinho.',
+  settingsDevBuild: 'Rodando a partir do código: não há atualização a instalar.',
+  settingsNoChangelog: 'Nenhuma nota de versão encontrada.',
+  settingsVersion: 'Versão',
+  settingsPlatform: 'Plataforma',
+  settingsSystemsLoaded: 'Sistemas carregados',
+  settingsRepository: 'Repositório',
+  settingsLegal:
+    'O ROMOrganizer organiza arquivos que já estão no seu disco. Não baixa, não busca e não distribui conteúdo de jogo.',
+  settingsCredits:
+    'Metadados de DAT do libretro-database (CC BY-SA 4.0). Ícones de console do retroarch-assets (CC BY 4.0).',
+
   playlistsTitle: 'Playlists',
   playlistsScreenHint: 'Playlists do RetroArch, por plataforma. Regerar substitui a existente.',
   playlistsChecking: 'Verificando…',
@@ -251,6 +281,36 @@ const en: Dictionary = {
   skipCollision: 'a file with that name already exists',
   skipDuplicateTarget: 'two files map to the same name',
 
+  settingsTitle: 'Settings',
+  settingsHint: 'App preferences, version and updates.',
+  settingsGeneral: 'General',
+  settingsUpdates: 'Updates',
+  settingsChangelog: 'What is new',
+  settingsAbout: 'About',
+  settingsLanguage: 'Language',
+  settingsLanguageAuto: 'System',
+  settingsLanguageHint: 'Changing the language restarts the app.',
+  settingsCheckOnStart: 'Check for a new version on launch',
+  settingsData: 'App data',
+  settingsDataHint: 'Where libraries, the DAT cache and downloaded icons live.',
+  settingsOpenDataFolder: 'Open data folder',
+  settingsCheckNow: 'Check now',
+  settingsChecking: 'Checking…',
+  settingsUpToDate: 'You are on the latest version.',
+  settingsCurrentVersion: (version: string) => `Current version: ${version}`,
+  settingsMacUnsigned:
+    'This macOS build is unsigned, so the app cannot install the update by itself.',
+  settingsDevBuild: 'Running from source: there is no update to install.',
+  settingsNoChangelog: 'No release notes found.',
+  settingsVersion: 'Version',
+  settingsPlatform: 'Platform',
+  settingsSystemsLoaded: 'Systems loaded',
+  settingsRepository: 'Repository',
+  settingsLegal:
+    'ROMOrganizer organizes files already on your disk. It does not download, search for or distribute game content.',
+  settingsCredits:
+    'DAT metadata from libretro-database (CC BY-SA 4.0). Console icons from retroarch-assets (CC BY 4.0).',
+
   playlistsTitle: 'Playlists',
   playlistsScreenHint: 'RetroArch playlists, per platform. Regenerating replaces the existing one.',
   playlistsChecking: 'Checking…',
@@ -297,7 +357,17 @@ const en: Dictionary = {
   dryRunNotice: 'Nothing changes until you click Apply.',
 }
 
-/** Português para quem usa o sistema em português; inglês para todo o resto. */
-export const t: Dictionary = navigator.language.toLowerCase().startsWith('pt') ? ptBR : en
+/**
+ * Idioma da interface.
+ *
+ * A escolha do usuário vence; `auto` cai no idioma do sistema. O valor chega pronto do
+ * processo main, então não existe o momento em que a tela aparece num idioma e troca depois.
+ */
+function resolveLanguage(): 'pt-BR' | 'en' {
+  const chosen = window.romorg.language
+  if (chosen === 'pt-BR' || chosen === 'en') return chosen
+  return navigator.language.toLowerCase().startsWith('pt') ? 'pt-BR' : 'en'
+}
 
-export const locale = navigator.language.toLowerCase().startsWith('pt') ? 'pt-BR' : 'en'
+export const locale = resolveLanguage()
+export const t: Dictionary = locale === 'pt-BR' ? ptBR : en

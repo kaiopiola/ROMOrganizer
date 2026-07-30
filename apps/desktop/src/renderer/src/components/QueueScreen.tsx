@@ -99,11 +99,6 @@ export function QueueScreen({ jobs, libraries, systems, icons, onCancel, onClear
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <header className="border-b border-neutral-800 px-6 py-4">
-        <h2 className="text-sm font-medium">{t.queueTitle}</h2>
-        <p className="text-xs text-neutral-500">{t.queueSerialNote}</p>
-      </header>
-
       {jobs.length === 0 ? (
         <p className="px-6 py-8 text-sm text-neutral-500">{t.queueEmpty}</p>
       ) : (

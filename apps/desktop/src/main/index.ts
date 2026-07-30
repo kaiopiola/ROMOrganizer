@@ -20,7 +20,12 @@ function rulePacksDirectory(): string {
     : join(process.resourcesPath, 'systems')
 }
 
-function createWindow(): void {
+/**
+ * O idioma precisa estar disponível no carregamento do renderer, antes do primeiro render —
+ * buscá-lo por IPC deixaria a interface aparecer no idioma errado e trocar depois. Por isso
+ * ele viaja como argumento da janela.
+ */
+function createWindow(language: string): void {
   const window = new BrowserWindow({
     width: 1280,
     height: 860,
@@ -32,6 +37,7 @@ function createWindow(): void {
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: fileURLToPath(new URL('../preload/index.mjs', import.meta.url)),
+      additionalArguments: [`--romorg-language=${language}`],
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
@@ -61,11 +67,18 @@ void app.whenReady().then(async () => {
   const iconCache = new IconCache(join(app.getPath('userData'), 'icons'))
 
   registerIpc(registry, libraries, datCache, iconCache)
-  createWindow()
+
+  const { language } = await libraries.preferences()
+  createWindow(language)
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) void reopen()
   })
+
+  async function reopen(): Promise<void> {
+    const preferences = await libraries.preferences()
+    createWindow(preferences.language)
+  }
 })
 
 app.on('window-all-closed', () => {

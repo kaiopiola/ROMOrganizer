@@ -52,11 +52,6 @@ export function PlaylistsScreen({ icons, onError }: Props) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <header className="border-b border-neutral-800 px-6 py-4">
-        <h2 className="text-sm font-medium">{t.playlistsTitle}</h2>
-        <p className="text-xs text-neutral-500">{t.playlistsScreenHint}</p>
-      </header>
-
       {status === null ? (
         <p className="px-6 py-8 text-sm text-neutral-500">{t.playlistsChecking}</p>
       ) : status.length === 0 ? (

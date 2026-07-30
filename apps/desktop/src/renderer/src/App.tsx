@@ -15,6 +15,7 @@ import { PlanPanel } from './components/PlanPanel.tsx'
 import { HistoryPanel } from './components/HistoryPanel.tsx'
 import { AuditPanel } from './components/AuditPanel.tsx'
 import { PlaylistsScreen } from './components/PlaylistsScreen.tsx'
+import { SettingsScreen } from './components/SettingsScreen.tsx'
 import type { View } from './views.ts'
 import { QueueBar } from './components/QueueBar.tsx'
 import { QueueScreen } from './components/QueueScreen.tsx'
@@ -263,14 +264,18 @@ export function App() {
                 ? t.playlistsTitle
                 : view === 'queue'
                   ? t.queueTitle
-                  : (activeSystem?.name ?? (active === null ? t.appName : active.systemId))}
+                  : view === 'settings'
+                    ? t.settingsTitle
+                    : (activeSystem?.name ?? (active === null ? t.appName : active.systemId))}
             </h1>
             <p className="truncate text-sm text-neutral-400" title={active?.directory}>
               {view === 'playlists'
                 ? t.playlistsScreenHint
                 : view === 'queue'
                   ? t.queueSerialNote
-                  : (active?.directory ?? t.tagline)}
+                  : view === 'settings'
+                    ? t.settingsHint
+                    : (active?.directory ?? t.tagline)}
             </p>
           </div>
         </header>
@@ -284,6 +289,8 @@ export function App() {
             onCancel={queue.cancel}
             onClearFinished={queue.clearFinished}
           />
+        ) : view === 'settings' ? (
+          <SettingsScreen onError={setError} />
         ) : view === 'playlists' ? (
           <PlaylistsScreen icons={icons} onError={setError} />
         ) : active === null ? (

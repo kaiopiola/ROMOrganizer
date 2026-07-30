@@ -28,6 +28,7 @@ import type { DatCache } from './dat-cache.ts'
 import type { IconCache } from './icon-cache.ts'
 import { ScanSnapshot } from './scan-snapshot.ts'
 import { checkForUpdates, downloadAndInstall, openReleasePage } from './updater.ts'
+import { readChangelog } from './changelog.ts'
 import { loadLocalDat } from './dat-cache.ts'
 import {
   hashCachePathFor,
@@ -221,6 +222,42 @@ export function registerIpc(
     if (library === undefined) throw new Error(`biblioteca desconhecida: ${libraryId}`)
     return library
   }
+
+  ipcMain.handle('app:info', async () => {
+    const preferences = await libraries.preferences()
+    return {
+      version: app.getVersion(),
+      electron: process.versions['electron'] ?? '',
+      node: process.versions.node,
+      platform: process.platform,
+      arch: process.arch,
+      userData: app.getPath('userData'),
+      systems: registry.size,
+      language: preferences.language,
+    }
+  })
+
+  ipcMain.handle('app:changelog', async () => {
+    const { language } = await libraries.preferences()
+    const resolved = language === 'auto' ? app.getLocale() : language
+    return readChangelog(resolved.toLowerCase().startsWith('pt') ? 'pt-BR' : 'en')
+  })
+
+  ipcMain.handle('app:openPath', async (_event, path: string) => {
+    await shell.openPath(path)
+  })
+
+  ipcMain.handle('app:openExternal', async (_event, url: string) => {
+    // Só endereços do próprio projeto: um link vindo do renderer não deve abrir qualquer coisa.
+    if (!url.startsWith('https://github.com/kaiopiola/ROMOrganizer')) return
+    await shell.openExternal(url)
+  })
+
+  /** Trocar o idioma exige recarregar: as strings são resolvidas no carregamento do renderer. */
+  ipcMain.handle('app:relaunch', () => {
+    app.relaunch()
+    app.exit(0)
+  })
 
   ipcMain.handle('updates:check', () => checkForUpdates())
   ipcMain.handle('updates:install', () => downloadAndInstall())

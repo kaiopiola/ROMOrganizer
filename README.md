@@ -41,6 +41,8 @@ Guessing a ROM from its filename is exactly what makes other tools get it wrong.
    bytes swapped).
 4. **Filename heuristics** — last resort only, and flagged as such in the interface.
 
+Full description of what the app does in [docs/features.md](docs/features.md).
+
 Nothing changes without your review: every batch goes through a **dry run**, and every execution
 writes a journal that makes it **undoable**.
 

@@ -16,10 +16,11 @@ export function UpdateBanner() {
 
   useEffect(() => {
     // Silencioso de propósito: sem rede, ou em desenvolvimento, simplesmente não há aviso.
-    void window.romorg.updates
-      .check()
-      .then(setStatus)
-      .catch(() => undefined)
+    void (async () => {
+      const preferences = await window.romorg.preferences.get()
+      if (!preferences.checkUpdatesOnStart) return
+      setStatus(await window.romorg.updates.check())
+    })().catch(() => undefined)
   }, [])
 
   if (status === null || status.availableVersion === null || dismissed) return null
