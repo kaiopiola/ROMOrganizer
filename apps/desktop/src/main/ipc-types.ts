@@ -134,6 +134,21 @@ export interface PlaylistPlanDto {
   lpl: { fileName: string; items: number; exists: boolean }
 }
 
+export interface PlaylistStatusDto {
+  libraryId: string
+  systemId: string
+  systemName: string
+  directory: string
+  /** Quantos arquivos foram identificados nesta sessão ou restaurados do snapshot. */
+  identified: number
+  /** Quantas entradas a playlist teria. */
+  games: number
+  discGroups: string[]
+  lplName: string | null
+  lplExists: boolean
+  lplUpdatedAt: string | null
+}
+
 export interface ScanProgress {
   libraryId: string
   done: number

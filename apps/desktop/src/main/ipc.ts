@@ -1,4 +1,4 @@
-import { access, readdir, writeFile } from 'node:fs/promises'
+import { access, readdir, stat, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import type { IpcMainInvokeEvent } from 'electron'
@@ -47,11 +47,20 @@ import type {
   PlanOptionsDto,
   PlanResultDto,
   PlaylistPlanDto,
+  PlaylistStatusDto,
   ScanProgress,
   ScanRow,
   ScanSummaryDto,
   UndoResultDto,
 } from './ipc-types.ts'
+
+async function fileModifiedAt(path: string): Promise<Date | null> {
+  try {
+    return new Date((await stat(path)).mtimeMs)
+  } catch {
+    return null
+  }
+}
 
 async function fileExists(path: string): Promise<boolean> {
   try {
@@ -592,12 +601,56 @@ export function registerIpc(
     },
   )
 
+  /**
+   * Estado das playlists de todas as bibliotecas.
+   *
+   * A gestão é por coleção inteira, não por pasta aberta: quem mantém oito consoles quer ver
+   * de uma vez quais playlists estão desatualizadas.
+   */
+  ipcMain.handle('playlists:status', async (): Promise<PlaylistStatusDto[]> => {
+    const all = await libraries.list()
+
+    return Promise.all(
+      all.map(async (library) => {
+        const system = registry.get(library.systemId)
+        const identifications = identificationsOf(stateOf(library.id))
+        const groups = detectDiscGroups(identifications)
+
+        const lplName = system === undefined ? null : lplNameFor(system)
+        const lplPath = lplName === null ? null : join(library.directory, lplName)
+
+        const games =
+          system === undefined
+            ? 0
+            : buildLpl(identifications, system, {
+                discGroups: groups,
+                directory: library.directory,
+              }).items.length
+
+        return {
+          libraryId: library.id,
+          systemId: library.systemId,
+          systemName: system?.name ?? library.systemId,
+          directory: library.directory,
+          /** Sem identificação carregada não há o que gerar — a tela avisa em vez de gerar vazio. */
+          identified: identifications.length,
+          games,
+          discGroups: groups.map(m3uNameFor),
+          lplName,
+          lplExists: lplPath === null ? false : await fileExists(lplPath),
+          lplUpdatedAt:
+            lplPath === null ? null : ((await fileModifiedAt(lplPath))?.toISOString() ?? null),
+        }
+      }),
+    )
+  })
+
   ipcMain.handle(
     'playlists:write',
     async (
       _event,
       libraryId: string,
-      options: { m3u: boolean; lpl: boolean; overwrite: boolean },
+      options: { overwrite: boolean },
     ): Promise<{ written: string[]; skipped: string[] }> => {
       const library = await requireLibrary(libraryId)
       const system = registry.get(library.systemId)
@@ -617,13 +670,11 @@ export function registerIpc(
         written.push(fileName)
       }
 
-      if (options.m3u) {
-        for (const group of detectDiscGroups(identifications)) {
-          await write(m3uNameFor(group), buildM3u(group))
-        }
+      for (const group of detectDiscGroups(identifications)) {
+        await write(m3uNameFor(group), buildM3u(group))
       }
 
-      if (options.lpl) {
+      {
         await write(
           lplNameFor(system),
           serializeLpl(

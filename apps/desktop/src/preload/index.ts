@@ -10,6 +10,7 @@ import type {
   PlanOptionsDto,
   PlanResultDto,
   PlaylistPlanDto,
+  PlaylistStatusDto,
   ScanProgress,
   ScanSummaryDto,
   UndoResultDto,
@@ -85,11 +86,13 @@ const api = {
   },
 
   playlists: {
+    /** Estado das playlists de todas as bibliotecas. */
+    status: (): Promise<PlaylistStatusDto[]> => ipcRenderer.invoke('playlists:status'),
     preview: (libraryId: string): Promise<PlaylistPlanDto> =>
       ipcRenderer.invoke('playlists:preview', libraryId),
     write: (
       libraryId: string,
-      options: { m3u: boolean; lpl: boolean; overwrite: boolean },
+      options: { overwrite: boolean },
     ): Promise<{ written: string[]; skipped: string[] }> =>
       ipcRenderer.invoke('playlists:write', libraryId, options),
   },

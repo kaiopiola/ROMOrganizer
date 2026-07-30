@@ -14,7 +14,7 @@ import { ScanTable } from './components/ScanTable.tsx'
 import { PlanPanel } from './components/PlanPanel.tsx'
 import { HistoryPanel } from './components/HistoryPanel.tsx'
 import { AuditPanel } from './components/AuditPanel.tsx'
-import { PlaylistPanel } from './components/PlaylistPanel.tsx'
+import { PlaylistsScreen } from './components/PlaylistsScreen.tsx'
 import { QueueBar } from './components/QueueBar.tsx'
 import { QueueScreen } from './components/QueueScreen.tsx'
 import { TemplateEditor } from './components/TemplateEditor.tsx'
@@ -40,6 +40,7 @@ export function App() {
   const [auditUnreleased, setAuditUnreleased] = useState(false)
   const [auditing, setAuditing] = useState(false)
 
+  const [view, setView] = useState<'library' | 'playlists'>('library')
   const [queueOpen, setQueueOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -234,6 +235,8 @@ export function App() {
         libraries={libraries}
         icons={icons}
         activeId={activeId}
+        view={view}
+        onViewChange={setView}
         jobFor={queue.activeFor}
         onSelect={setActiveId}
         onChanged={refreshLibraries}
@@ -245,15 +248,17 @@ export function App() {
             isMac ? 'pt-9 pb-5' : 'py-5'
           }`}
         >
-          {active !== null && (
+          {view === 'library' && active !== null && (
             <SystemIcon source={icons[active.systemId] ?? null} className="size-10 shrink-0" />
           )}
           <div className="min-w-0">
             <h1 className="truncate text-lg font-semibold">
-              {activeSystem?.name ?? (active === null ? t.appName : active.systemId)}
+              {view === 'playlists'
+                ? t.playlistsTitle
+                : (activeSystem?.name ?? (active === null ? t.appName : active.systemId))}
             </h1>
             <p className="truncate text-sm text-neutral-400" title={active?.directory}>
-              {active?.directory ?? t.tagline}
+              {view === 'playlists' ? t.playlistsScreenHint : (active?.directory ?? t.tagline)}
             </p>
           </div>
         </header>
@@ -267,6 +272,8 @@ export function App() {
             onCancel={queue.cancel}
             onClearFinished={queue.clearFinished}
           />
+        ) : view === 'playlists' ? (
+          <PlaylistsScreen icons={icons} onError={setError} />
         ) : active === null ? (
           <div className="flex flex-1 items-center justify-center px-8 text-center">
             <p className="max-w-md text-sm text-neutral-500">{t.librariesEmpty}</p>
@@ -359,8 +366,6 @@ export function App() {
                 onApply={() => enqueue('apply')}
               />
             )}
-
-            <PlaylistPanel libraryId={active.id} onNotice={setNotice} onError={setError} />
 
             <AuditPanel
               libraryId={active.id}

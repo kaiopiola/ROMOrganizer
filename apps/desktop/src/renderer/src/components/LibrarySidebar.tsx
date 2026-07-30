@@ -11,6 +11,9 @@ interface Props {
   libraries: Library[]
   icons: Record<string, string | null>
   activeId: string | null
+  /** Tela aberta: a lista de bibliotecas some do destaque quando é outra. */
+  view: 'library' | 'playlists'
+  onViewChange: (view: 'library' | 'playlists') => void
   /** Trabalho em andamento ou na fila para cada biblioteca. */
   jobFor: (libraryId: string) => Job | undefined
   onSelect: (id: string) => void
@@ -22,6 +25,8 @@ export function LibrarySidebar({
   libraries,
   icons,
   activeId,
+  view,
+  onViewChange,
   jobFor,
   onSelect,
   onChanged,
@@ -62,9 +67,12 @@ export function LibrarySidebar({
             <li key={library.id}>
               <button
                 type="button"
-                onClick={() => onSelect(library.id)}
+                onClick={() => {
+                  onViewChange('library')
+                  onSelect(library.id)
+                }}
                 className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left ${
-                  isActive ? 'bg-neutral-800' : 'hover:bg-neutral-800/50'
+                  isActive && view === 'library' ? 'bg-neutral-800' : 'hover:bg-neutral-800/50'
                 }`}
               >
                 <SystemIcon source={icons[library.systemId] ?? null} className="size-7 shrink-0" />
@@ -111,6 +119,16 @@ export function LibrarySidebar({
       </ul>
 
       <div className="border-t border-neutral-800 p-3">
+        <button
+          type="button"
+          onClick={() => onViewChange('playlists')}
+          className={`mb-2 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm ${
+            view === 'playlists' ? 'bg-neutral-800' : 'hover:bg-neutral-800/50'
+          }`}
+        >
+          {t.playlistsTitle}
+        </button>
+
         <button
           type="button"
           onClick={() => setAdding(true)}
