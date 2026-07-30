@@ -20,6 +20,7 @@ interface AppInfo {
 
 const REPOSITORY = 'https://github.com/kaiopiola/ROMOrganizer'
 const AUTHOR = 'https://github.com/kaiopiola'
+const AUTHOR_NAME = 'Kaio Piola'
 
 interface Props {
   onError: (message: string) => void
@@ -242,6 +243,7 @@ export function SettingsScreen({ onError }: Props) {
             <div>
               <h3 className="text-base font-semibold">{t.appName}</h3>
               <p className="text-neutral-400">{t.tagline}</p>
+              <p className="mt-1 text-neutral-500">{t.settingsMadeBy(AUTHOR_NAME)}</p>
             </div>
 
             <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-neutral-400">

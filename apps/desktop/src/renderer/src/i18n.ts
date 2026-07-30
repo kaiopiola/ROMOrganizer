@@ -131,6 +131,7 @@ const ptBR = {
   settingsSystemsLoaded: 'Sistemas carregados',
   settingsRepository: 'Repositório do projeto',
   settingsAuthor: 'GitHub do autor',
+  settingsMadeBy: (author: string) => `Feito por ${author}`,
   settingsLegal:
     'O ROMOrganizer organiza arquivos que já estão no seu disco. Não baixa, não busca e não distribui conteúdo de jogo.',
   settingsCredits:
@@ -308,6 +309,7 @@ const en: Dictionary = {
   settingsSystemsLoaded: 'Systems loaded',
   settingsRepository: 'Project repository',
   settingsAuthor: "Author's GitHub",
+  settingsMadeBy: (author: string) => `Made by ${author}`,
   settingsLegal:
     'ROMOrganizer organizes files already on your disk. It does not download, search for or distribute game content.',
   settingsCredits:
