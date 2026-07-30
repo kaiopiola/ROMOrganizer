@@ -64,43 +64,43 @@ function colorAt(u: number, v: number): Rgb {
   // Fundo com um degradê discreto, para o ícone não parecer chapado no dock.
   let color = mix(BACKGROUND_TOP, BACKGROUND_BOTTOM, v)
 
-  const bodyTop = 0.17
-  const bodyBottom = 0.85
+  const bodyTop = 0.13
+  const bodyBottom = 0.89
   const body = roundedRectDistance(
     u,
     v,
     0.5,
     (bodyTop + bodyBottom) / 2,
-    0.25,
+    0.3,
     (bodyBottom - bodyTop) / 2,
-    0.045,
+    0.05,
   )
 
   if (body < 0) {
     // Volume por degradê lateral, e não por um corte de cor: um degrau duro no meio do
     // cartucho lê como defeito, não como sombra.
-    const shade = Math.max(0, (u - 0.42) / 0.33)
+    const shade = Math.max(0, (u - 0.4) / 0.4)
     color = mix(CARTRIDGE, CARTRIDGE_SHADE, Math.min(shade, 1) ** 2)
 
     // Chanfro nos cantos de cima, que é o que distingue a silhueta de um retângulo comum.
-    const chamfer = 0.075
+    const chamfer = 0.085
     const fromTop = v - bodyTop
-    const fromSide = Math.min(u - 0.25, 0.75 - u)
+    const fromSide = Math.min(u - 0.2, 0.8 - u)
     if (fromTop < chamfer && fromSide < chamfer - fromTop) {
       color = mix(BACKGROUND_TOP, BACKGROUND_BOTTOM, v)
     }
   }
 
   // Etiqueta: o elemento que faz a forma ser lida como cartucho, e não como um bloco.
-  const label = roundedRectDistance(u, v, 0.5, 0.4, 0.175, 0.115, 0.02)
+  const label = roundedRectDistance(u, v, 0.5, 0.385, 0.21, 0.13, 0.025)
   if (label < 0) color = LABEL
 
   // Ranhuras do conector, na base. Somem em tamanho pequeno, e é aceitável: são o detalhe
   // que enriquece o ícone grande sem sustentar a leitura do pequeno.
-  if (body < 0 && v > 0.68 && v < 0.79) {
-    const period = 0.05
-    const phase = (u - 0.29) / period
-    if (u > 0.29 && u < 0.71 && phase - Math.floor(phase) < 0.5) {
+  if (body < 0 && v > 0.68 && v < 0.82) {
+    const period = 0.06
+    const phase = (u - 0.25) / period
+    if (u > 0.25 && u < 0.75 && phase - Math.floor(phase) < 0.5) {
       color = mix(BACKGROUND_TOP, BACKGROUND_BOTTOM, 0.7)
     }
   }
