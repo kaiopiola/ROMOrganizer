@@ -1,10 +1,9 @@
-import { execFile } from 'node:child_process'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { promisify } from 'node:util'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { scanDirectory } from './scan.ts'
+import { buildZip } from '../archive/zip-fixture.ts'
 import { DatIndex } from '../dat/index-db.ts'
 import { hashBytes } from '../hash/rom-hash.ts'
 import { pseudoRandomBytes } from '../rom/fixtures.ts'
@@ -119,13 +118,7 @@ describe('scanDirectory', () => {
       ],
     })
 
-    const stageDir = join(workDir, 'stage')
-    await mkdir(stageDir, { recursive: true })
-    await writeFile(join(stageDir, 'interno.nes'), dump)
-    await promisify(execFile)('zip', ['-q', '-r', '-X', join(workDir, 'coleção.zip'), '.'], {
-      cwd: stageDir,
-    })
-    await rm(stageDir, { recursive: true })
+    await writeFile(join(workDir, 'coleção.zip'), buildZip({ 'interno.nes': dump }))
     await writeFile(join(workDir, 'solta.nes'), pseudoRandomBytes(64, 43))
 
     const { results } = await scanDirectory(workDir, NES, index)
@@ -137,14 +130,13 @@ describe('scanDirectory', () => {
   })
 
   it('um zip com duas ROMs rende dois resultados', async () => {
-    const stageDir = join(workDir, 'stage2')
-    await mkdir(stageDir, { recursive: true })
-    await writeFile(join(stageDir, 'a.nes'), pseudoRandomBytes(64, 47))
-    await writeFile(join(stageDir, 'b.nes'), pseudoRandomBytes(64, 53))
-    await promisify(execFile)('zip', ['-q', '-r', '-X', join(workDir, 'duplo.zip'), '.'], {
-      cwd: stageDir,
-    })
-    await rm(stageDir, { recursive: true })
+    await writeFile(
+      join(workDir, 'duplo.zip'),
+      buildZip({
+        'a.nes': pseudoRandomBytes(64, 47),
+        'b.nes': pseudoRandomBytes(64, 53),
+      }),
+    )
 
     const { results } = await scanDirectory(workDir, NES, index)
     expect(results).toHaveLength(2)

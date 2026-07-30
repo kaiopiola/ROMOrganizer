@@ -1,10 +1,9 @@
-import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { promisify } from 'node:util'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { identifyFile, identifyPath, identifyZip } from './identify.ts'
+import { buildZip } from '../archive/zip-fixture.ts'
 import { DatIndex } from '../dat/index-db.ts'
 import { hashBytes } from '../hash/rom-hash.ts'
 import { inesHeader, pseudoRandomBytes } from '../rom/fixtures.ts'
@@ -190,13 +189,8 @@ describe('identifyFile — match por hash', () => {
 
 describe('identifyZip', () => {
   async function makeZip(zipName: string, files: Record<string, Uint8Array>): Promise<string> {
-    const stageDir = join(workDir, `stage-${zipName}`)
-    await mkdir(stageDir, { recursive: true })
-    for (const [name, content] of Object.entries(files)) {
-      await writeFile(join(stageDir, name), content)
-    }
     const zipPath = join(workDir, zipName)
-    await promisify(execFile)('zip', ['-q', '-r', '-X', zipPath, '.'], { cwd: stageDir })
+    await writeFile(zipPath, buildZip(files))
     return zipPath
   }
 

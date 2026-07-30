@@ -1,16 +1,13 @@
-import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { promisify } from 'node:util'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { isZipPath, listZipEntries, openZipEntry, ZipError } from './zip.ts'
+import { buildZip } from './zip-fixture.ts'
 import { crc32 } from '../hash/crc32.ts'
 import { hashBytes, hashChunks } from '../hash/rom-hash.ts'
 import { inesHeader, pseudoRandomBytes } from '../rom/fixtures.ts'
 import { concatBytes } from '../util/bytes.ts'
-
-const run = promisify(execFile)
 
 let workDir: string
 
@@ -22,17 +19,10 @@ afterAll(async () => {
   await rm(workDir, { recursive: true, force: true })
 })
 
-/** Monta um zip de verdade com o `zip` do sistema, em vez de um fixture binário no repo. */
+/** Grava um zip montado em memória num arquivo temporário e devolve o caminho. */
 async function makeZip(zipName: string, files: Record<string, Uint8Array>): Promise<string> {
-  const stageDir = join(workDir, `stage-${zipName}`)
-  await mkdir(stageDir, { recursive: true })
-
-  for (const [name, content] of Object.entries(files)) {
-    await writeFile(join(stageDir, name), content)
-  }
-
   const zipPath = join(workDir, zipName)
-  await run('zip', ['-q', '-r', '-X', zipPath, '.'], { cwd: stageDir })
+  await writeFile(zipPath, buildZip(files))
   return zipPath
 }
 
@@ -69,12 +59,11 @@ describe('listZipEntries', () => {
   })
 
   it('não devolve diretórios como se fossem arquivos', async () => {
-    const stageDir = join(workDir, 'com-pasta')
-    await mkdir(join(stageDir, 'sub'), { recursive: true })
-    await writeFile(join(stageDir, 'sub', 'dentro.nes'), pseudoRandomBytes(64, 83))
-
-    const zipPath = join(workDir, 'com-pasta.zip')
-    await run('zip', ['-q', '-r', '-X', zipPath, '.'], { cwd: stageDir })
+    // A entrada `sub/` existe de propósito: é o que exercita a exclusão de diretórios.
+    const zipPath = await makeZip('com-pasta.zip', {
+      'sub/': new Uint8Array(0),
+      'sub/dentro.nes': pseudoRandomBytes(64, 83),
+    })
 
     const entries = await listZipEntries(zipPath)
     expect(entries.map((entry) => entry.name)).toEqual(['sub/dentro.nes'])

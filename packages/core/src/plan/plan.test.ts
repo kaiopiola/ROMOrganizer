@@ -53,7 +53,9 @@ describe('planRenames', () => {
 
   it('mantém o arquivo na pasta em que ele já está', () => {
     const plan = planRenames([identification('x.nes', 'Y.nes')])
-    expect(plan.operations[0]?.to.startsWith(DIR)).toBe(true)
+    // Compara pelo caminho montado com join: no Windows o separador é `\`, e comparar com a
+    // string crua `/roms/nes` daria falso negativo.
+    expect(plan.operations[0]?.to).toBe(join(DIR, 'Y.nes'))
   })
 
   it('pula o que já está com o nome certo', () => {
