@@ -80,6 +80,11 @@ jobs:
       - name: Verificar
         run: pnpm lint && pnpm typecheck && pnpm test
 
+      # O electron-builder empacota o que está em out/, mas não o gera — é o
+      # electron-vite build que produz out/main, out/preload e out/renderer.
+      - name: Compilar renderer e main
+        run: pnpm --filter @romorg/desktop build
+
       # O publish cria a release e a tag v<versão>, e gera os latest*.yml que o
       # updater lê para saber que existe versão nova.
       - name: Publicar

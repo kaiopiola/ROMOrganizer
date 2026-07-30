@@ -53,6 +53,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # O electron-builder empacota o que está em out/, mas não o gera — é o
+      # electron-vite build que produz out/main, out/preload e out/renderer.
+      - name: Compilar renderer e main
+        run: pnpm --filter @romorg/desktop build
+
       # Empacota sem publicar: garante que o electron-builder funciona nos três
       # sistemas antes de existir release. O `--publish never` é explícito porque o
       # electron-builder publica por conta própria ao detectar CI, e este workflow
