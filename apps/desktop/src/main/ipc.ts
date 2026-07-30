@@ -55,6 +55,16 @@ import type {
   UndoResultDto,
 } from './ipc-types.ts'
 
+/** Endereços que a interface pode pedir para abrir no navegador. */
+const ALLOWED_LINKS = new Set([
+  'https://github.com/kaiopiola',
+  'https://github.com/kaiopiola/ROMOrganizer',
+  'https://github.com/kaiopiola/ROMOrganizer/blob/main/LICENSE',
+  'https://github.com/kaiopiola/ROMOrganizer/releases',
+  'https://github.com/libretro/libretro-database',
+  'https://github.com/libretro/retroarch-assets',
+])
+
 async function fileModifiedAt(path: string): Promise<Date | null> {
   try {
     return new Date((await stat(path)).mtimeMs)
@@ -248,8 +258,9 @@ export function registerIpc(
   })
 
   ipcMain.handle('app:openExternal', async (_event, url: string) => {
-    // Só endereços do próprio projeto: um link vindo do renderer não deve abrir qualquer coisa.
-    if (!url.startsWith('https://github.com/kaiopiola/ROMOrganizer')) return
+    // Lista exata, e não prefixo: `começa com github.com/kaiopiola` deixaria passar
+    // `github.com/kaiopiola-outra-pessoa`. Um link vindo do renderer não abre qualquer coisa.
+    if (!ALLOWED_LINKS.has(url)) return
     await shell.openExternal(url)
   })
 

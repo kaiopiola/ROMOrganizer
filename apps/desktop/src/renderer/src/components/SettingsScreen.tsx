@@ -19,6 +19,7 @@ interface AppInfo {
 }
 
 const REPOSITORY = 'https://github.com/kaiopiola/ROMOrganizer'
+const AUTHOR = 'https://github.com/kaiopiola'
 
 interface Props {
   onError: (message: string) => void
@@ -270,6 +271,13 @@ export function SettingsScreen({ onError }: Props) {
               </button>
               <button
                 type="button"
+                onClick={() => void window.romorg.app.openExternal(AUTHOR)}
+                className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800"
+              >
+                {t.settingsAuthor}
+              </button>
+              <button
+                type="button"
                 onClick={() =>
                   void window.romorg.app.openExternal(`${REPOSITORY}/blob/main/LICENSE`)
                 }
@@ -279,7 +287,33 @@ export function SettingsScreen({ onError }: Props) {
               </button>
             </div>
 
-            <p className="text-xs text-neutral-500">{t.settingsCredits}</p>
+            <div className="text-xs text-neutral-500">
+              <p>{t.settingsCredits}</p>
+              <div className="mt-1 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    void window.romorg.app.openExternal(
+                      'https://github.com/libretro/libretro-database',
+                    )
+                  }
+                  className="underline hover:text-neutral-300"
+                >
+                  libretro-database
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void window.romorg.app.openExternal(
+                      'https://github.com/libretro/retroarch-assets',
+                    )
+                  }
+                  className="underline hover:text-neutral-300"
+                >
+                  retroarch-assets
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

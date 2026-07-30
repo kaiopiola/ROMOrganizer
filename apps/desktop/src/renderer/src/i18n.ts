@@ -129,7 +129,8 @@ const ptBR = {
   settingsVersion: 'Versão',
   settingsPlatform: 'Plataforma',
   settingsSystemsLoaded: 'Sistemas carregados',
-  settingsRepository: 'Repositório',
+  settingsRepository: 'Repositório do projeto',
+  settingsAuthor: 'GitHub do autor',
   settingsLegal:
     'O ROMOrganizer organiza arquivos que já estão no seu disco. Não baixa, não busca e não distribui conteúdo de jogo.',
   settingsCredits:
@@ -305,7 +306,8 @@ const en: Dictionary = {
   settingsVersion: 'Version',
   settingsPlatform: 'Platform',
   settingsSystemsLoaded: 'Systems loaded',
-  settingsRepository: 'Repository',
+  settingsRepository: 'Project repository',
+  settingsAuthor: "Author's GitHub",
   settingsLegal:
     'ROMOrganizer organizes files already on your disk. It does not download, search for or distribute game content.',
   settingsCredits:
