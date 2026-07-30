@@ -27,6 +27,7 @@ import {
 import type { DatCache } from './dat-cache.ts'
 import type { IconCache } from './icon-cache.ts'
 import { ScanSnapshot } from './scan-snapshot.ts'
+import { checkForUpdates, downloadAndInstall, openReleasePage } from './updater.ts'
 import { loadLocalDat } from './dat-cache.ts'
 import {
   hashCachePathFor,
@@ -220,6 +221,10 @@ export function registerIpc(
     if (library === undefined) throw new Error(`biblioteca desconhecida: ${libraryId}`)
     return library
   }
+
+  ipcMain.handle('updates:check', () => checkForUpdates())
+  ipcMain.handle('updates:install', () => downloadAndInstall())
+  ipcMain.handle('updates:openRelease', () => openReleasePage())
 
   ipcMain.handle('systems:list', () => registry.all())
 

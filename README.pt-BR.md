@@ -14,6 +14,21 @@ pelo nome do arquivo.
 Em desenvolvimento. Identificação, renomeação com desfazer, auditoria da coleção e playlists
 do RetroArch já funcionam. Ainda não há release empacotada — por ora, rode a partir do código.
 
+## Instalação
+
+Os downloads ficam na [página de releases](https://github.com/kaiopiola/ROMOrganizer/releases).
+
+Os builds **não são assinados** — não há certificado de desenvolvedor Apple nem certificado
+Windows por trás deste projeto. Isso tem duas consequências que vale saber antes de baixar:
+
+- **macOS**: o Gatekeeper bloqueia a primeira abertura. Clique com o botão direito no app e
+  escolha _Abrir_, ou rode `xattr -dr com.apple.quarantine /Applications/ROMOrganizer.app`.
+- **Windows**: o SmartScreen mostra um aviso. Escolha _Mais informações_ → _Executar assim mesmo_.
+
+**Atualizações**: no Windows e no Linux o app se atualiza sozinho. No macOS ele apenas avisa
+que há versão nova e abre a página do release — o Squirrel.Mac recusa aplicar atualização a um
+app não assinado, então a instalação automática é impossível sem certificado.
+
 ## Como funciona
 
 Adivinhar a ROM pelo nome do arquivo é justamente o que faz as outras ferramentas errarem.

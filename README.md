@@ -14,6 +14,21 @@ guessing from the filename.
 Under development. Identification, renaming with undo, collection audit and RetroArch
 playlists all work. There is no packaged release yet — build from source for now.
 
+## Installing
+
+Downloads are on the [releases page](https://github.com/kaiopiola/ROMOrganizer/releases).
+
+The builds are **not code-signed** — there is no Apple Developer certificate and no Windows
+certificate behind this project. That has two consequences worth knowing before you download:
+
+- **macOS**: Gatekeeper blocks the first launch. Right-click the app and choose _Open_, or run
+  `xattr -dr com.apple.quarantine /Applications/ROMOrganizer.app`.
+- **Windows**: SmartScreen shows a warning. Choose _More info_ → _Run anyway_.
+
+**Updates**: on Windows and Linux the app updates itself. On macOS it only tells you a new
+version exists and opens the release page — Squirrel.Mac refuses to apply an update to an
+unsigned app, so automatic installation is impossible without a certificate.
+
 ## How it works
 
 Guessing a ROM from its filename is exactly what makes other tools get it wrong. The order here is:

@@ -21,6 +21,7 @@ import { QueueScreen } from './components/QueueScreen.tsx'
 import { TemplateEditor } from './components/TemplateEditor.tsx'
 import { LibraryToolbar } from './components/LibraryToolbar.tsx'
 import { SystemIcon } from './components/SystemIcon.tsx'
+import { UpdateBanner } from './components/UpdateBanner.tsx'
 
 export function App() {
   const [systems, setSystems] = useState<SystemRulePack[]>([])
@@ -246,6 +247,8 @@ export function App() {
       />
 
       <main className="flex min-w-0 flex-1 flex-col">
+        <UpdateBanner />
+
         <header
           className={`flex items-center gap-4 border-b border-neutral-800 px-8 ${
             isMac ? 'pt-9 pb-5' : 'py-5'

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { SystemRulePack } from '@romorg/core'
 import type { Library, LibraryChanges, Preferences } from '../main/libraries.ts'
+import type { UpdateStatus } from '../main/updater.ts'
 import type {
   ApplyProgress,
   ApplyResultDto,
@@ -27,6 +28,12 @@ const api = {
   platform: process.platform,
 
   listSystems: (): Promise<SystemRulePack[]> => ipcRenderer.invoke('systems:list'),
+
+  updates: {
+    check: (): Promise<UpdateStatus> => ipcRenderer.invoke('updates:check'),
+    install: (): Promise<void> => ipcRenderer.invoke('updates:install'),
+    openRelease: (): Promise<void> => ipcRenderer.invoke('updates:openRelease'),
+  },
 
   preferences: {
     get: (): Promise<Preferences> => ipcRenderer.invoke('preferences:get'),

@@ -139,6 +139,13 @@ const ptBR = {
   undone: (count: number) => `${count} restaurado${count === 1 ? '' : 's'}`,
   journalOperations: (count: number) => `${count} arquivo${count === 1 ? '' : 's'}`,
 
+  updateAvailable: (version: string) => `Versão ${version} disponível`,
+  updateInstall: 'Atualizar e reiniciar',
+  updateInstalling: 'Baixando…',
+  updateOpenRelease: 'Abrir download',
+  updateManualMac: 'no macOS a atualização é manual',
+  updateDismiss: 'depois',
+
   failuresTitle: 'Falhas',
   error: 'Erro',
   dryRunNotice: 'Nada é alterado até você clicar em Aplicar.',
@@ -277,6 +284,13 @@ const en: Dictionary = {
   undo: 'Undo',
   undone: (count: number) => `${count} restored`,
   journalOperations: (count: number) => `${count} file${count === 1 ? '' : 's'}`,
+
+  updateAvailable: (version: string) => `Version ${version} available`,
+  updateInstall: 'Update and restart',
+  updateInstalling: 'Downloading…',
+  updateOpenRelease: 'Open download',
+  updateManualMac: 'on macOS the update is manual',
+  updateDismiss: 'later',
 
   failuresTitle: 'Failures',
   error: 'Error',
