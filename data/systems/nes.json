@@ -8,5 +8,5 @@
     "size": 16,
     "magic": "4e45531a"
   },
-  "defaultTemplate": "{title}[ ({region})][ ({revision})].{ext}"
+  "defaultTemplate": "{region}/{title}.{ext}"
 }

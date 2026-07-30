@@ -4,5 +4,5 @@
   "manufacturer": "Sega",
   "extensions": ["sms"],
   "libretroDat": "Sega - Master System - Mark III",
-  "defaultTemplate": "{title}[ ({region})][ ({revision})].{ext}"
+  "defaultTemplate": "{region}/{title}.{ext}"
 }

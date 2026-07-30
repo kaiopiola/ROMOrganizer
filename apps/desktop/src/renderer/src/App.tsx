@@ -8,7 +8,8 @@ import { LibrarySidebar } from './components/LibrarySidebar.tsx'
 import { ScanTable } from './components/ScanTable.tsx'
 import { PlanPanel } from './components/PlanPanel.tsx'
 import { HistoryPanel } from './components/HistoryPanel.tsx'
-import { QueuePanel } from './components/QueuePanel.tsx'
+import { QueueBar } from './components/QueueBar.tsx'
+import { QueueScreen } from './components/QueueScreen.tsx'
 import { TemplateEditor } from './components/TemplateEditor.tsx'
 import { LibraryToolbar } from './components/LibraryToolbar.tsx'
 import { SystemIcon } from './components/SystemIcon.tsx'
@@ -29,6 +30,7 @@ export function App() {
   const [includeFilenameMatches, setIncludeFilenameMatches] = useState(false)
   const [allowAmbiguous, setAllowAmbiguous] = useState(false)
 
+  const [queueOpen, setQueueOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -90,15 +92,45 @@ export function App() {
     void refreshLibraries()
   }, [refreshLibraries])
 
-  // Trocar de biblioteca zera o que era da anterior: mostrar um plano de outra pasta seria a
-  // forma mais fácil de o usuário aplicar a coisa errada.
+  /**
+   * Trocar de biblioteca descarta o que era da anterior e traz o que já se sabe desta.
+   *
+   * Descartar é obrigatório — mostrar o plano de outra pasta seria a forma mais fácil de o
+   * usuário aplicar a coisa errada. Mas uma coleção já identificada não precisa aparecer
+   * vazia: o main devolve o último resultado, da memória ou do snapshot em disco.
+   */
   useEffect(() => {
     setScan(null)
     setPlan(null)
     setNotice(null)
     setSelectedIds(null)
-    if (activeId !== null) void refreshJournals(activeId)
-    else setJournals([])
+
+    if (activeId === null) {
+      setJournals([])
+      return
+    }
+
+    void refreshJournals(activeId)
+
+    let cancelled = false
+    void (async () => {
+      const restored = await window.romorg.scan.restore(activeId)
+      if (cancelled || restored === null) return
+
+      const result = await window.romorg.plan.build(activeId, planOptions)
+      if (cancelled) return
+
+      setScan({ ...restored, rows: result.rows })
+      setPlan(result.plan)
+      if (restored.stale === true) setNotice(t.restoredStale)
+    })()
+
+    // A biblioteca pode mudar de novo antes da resposta chegar; sem isto, o resultado da
+    // anterior sobrescreveria a tela da atual.
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, refreshJournals])
 
   const hasScan = scan !== null
@@ -189,7 +221,16 @@ export function App() {
           </div>
         </header>
 
-        {active === null ? (
+        {queueOpen ? (
+          <QueueScreen
+            jobs={queue.jobs}
+            libraries={libraries}
+            systems={systems}
+            icons={icons}
+            onCancel={queue.cancel}
+            onClearFinished={queue.clearFinished}
+          />
+        ) : active === null ? (
           <div className="flex flex-1 items-center justify-center px-8 text-center">
             <p className="max-w-md text-sm text-neutral-500">{t.librariesEmpty}</p>
           </div>
@@ -237,13 +278,6 @@ export function App() {
               )}
             </section>
 
-            <QueuePanel
-              jobs={queue.jobs}
-              libraries={libraries}
-              onCancel={queue.cancel}
-              onClearFinished={queue.clearFinished}
-            />
-
             {error !== null && (
               <p className="rounded-md border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-300">
                 {error}
@@ -282,6 +316,13 @@ export function App() {
             <HistoryPanel journals={journals} onUndo={(path) => void undo(path)} />
           </div>
         )}
+
+        <QueueBar
+          jobs={queue.jobs}
+          libraries={libraries}
+          expanded={queueOpen}
+          onToggle={() => setQueueOpen((current) => !current)}
+        />
       </main>
     </div>
   )

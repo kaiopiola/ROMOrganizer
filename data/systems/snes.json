@@ -8,5 +8,5 @@
     "size": 512,
     "moduloBase": 1024
   },
-  "defaultTemplate": "{title}[ ({region})][ ({revision})].{ext}"
+  "defaultTemplate": "{region}/{title}.{ext}"
 }

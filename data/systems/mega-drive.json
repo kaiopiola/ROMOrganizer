@@ -4,5 +4,5 @@
   "manufacturer": "Sega",
   "extensions": ["md", "gen", "bin", "smd"],
   "libretroDat": "Sega - Mega Drive - Genesis",
-  "defaultTemplate": "{title}[ ({region})][ ({revision})].{ext}"
+  "defaultTemplate": "{region}/{title}.{ext}"
 }

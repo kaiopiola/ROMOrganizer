@@ -16,6 +16,7 @@ import {
 } from '@romorg/core'
 import type { DatCache } from './dat-cache.ts'
 import type { IconCache } from './icon-cache.ts'
+import { ScanSnapshot } from './scan-snapshot.ts'
 import { loadLocalDat } from './dat-cache.ts'
 import {
   hashCachePathFor,
@@ -23,6 +24,7 @@ import {
   type Library,
   type LibraryChanges,
   type LibraryStore,
+  scanSnapshotPathFor,
 } from './libraries.ts'
 import type {
   ApplyResultDto,
@@ -180,9 +182,17 @@ export function registerIpc(
     return libraries.add(systemId, result.filePaths[0])
   })
 
-  ipcMain.handle('libraries:update', (_event, id: string, changes: LibraryChanges) =>
-    libraries.update(id, changes),
-  )
+  ipcMain.handle('libraries:update', async (_event, id: string, changes: LibraryChanges) => {
+    const updated = await libraries.update(id, changes)
+
+    // Definir o padrão de nomes vale para o console, não só para esta pasta: a próxima
+    // biblioteca do mesmo sistema já começa do jeito que o usuário escolheu.
+    if (changes.template !== undefined && updated !== undefined) {
+      await libraries.setSystemTemplate(updated.systemId, changes.template)
+    }
+
+    return updated
+  })
 
   ipcMain.handle('libraries:remove', async (_event, id: string) => {
     states.delete(id)
@@ -245,6 +255,7 @@ export function registerIpc(
         // Cada rename cria uma chave nova; sem podar, o cache cresceria a cada aplicação.
         hashCache.retainOnly(summary.results.map((identification) => identification.filePath))
         await hashCache.save(cachePath)
+        await ScanSnapshot.save(scanSnapshotPathFor(library), summary.results)
 
         const dto: ScanSummaryDto = {
           libraryId,
@@ -261,6 +272,44 @@ export function registerIpc(
 
   ipcMain.handle('scan:cancel', (_event, libraryId: string) => {
     stateOf(libraryId).scanController?.abort()
+  })
+
+  /**
+   * Recupera o último resultado de identificação da biblioteca.
+   *
+   * Primeiro o estado em memória, que é o mais recente; depois o snapshot em disco, para
+   * reabrir o app não significar tela vazia numa coleção já identificada. Devolve `null`
+   * quando não há nada — aí só resta identificar.
+   */
+  ipcMain.handle('scan:restore', async (_event, libraryId: string) => {
+    const library = await requireLibrary(libraryId)
+    const state = stateOf(libraryId)
+
+    if (state.order.length > 0) {
+      return {
+        libraryId,
+        rows: identificationsOf(state).map(toRow),
+        failures: [],
+        restored: true,
+        stale: false,
+      }
+    }
+
+    const snapshot = await ScanSnapshot.load(scanSnapshotPathFor(library), registry)
+    if (snapshot === null) return null
+
+    state.identifications = new Map(
+      snapshot.identifications.map((identification) => [rowIdOf(identification), identification]),
+    )
+    state.order = snapshot.identifications.map(rowIdOf)
+
+    return {
+      libraryId,
+      rows: snapshot.identifications.map(toRow),
+      failures: [],
+      restored: true,
+      stale: snapshot.stale,
+    }
   })
 
   ipcMain.handle('apply:cancel', (_event, libraryId: string) => {

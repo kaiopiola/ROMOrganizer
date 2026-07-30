@@ -4,5 +4,5 @@
   "manufacturer": "Nintendo",
   "extensions": ["gb"],
   "libretroDat": "Nintendo - Game Boy",
-  "defaultTemplate": "{title}[ ({region})][ ({revision})].{ext}"
+  "defaultTemplate": "{region}/{title}.{ext}"
 }

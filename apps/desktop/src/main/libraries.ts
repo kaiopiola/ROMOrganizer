@@ -23,6 +23,13 @@ export type LibraryChanges = Partial<Omit<Library, 'id'>>
 interface LibrariesFile {
   version: 1
   libraries: Library[]
+  /**
+   * Padrão de nomes por console, herdado por bibliotecas novas.
+   *
+   * Quem define como quer os nomes de um console quer isso para o console, não para uma pasta
+   * específica — vincular uma segunda pasta do mesmo sistema deve começar já do jeito certo.
+   */
+  systemTemplates?: Record<string, string>
 }
 
 const EMPTY: LibrariesFile = { version: 1, libraries: [] }
@@ -82,7 +89,14 @@ export class LibraryStore {
     )
     if (existing !== undefined) return existing
 
-    const library: Library = { id: randomUUID(), systemId, directory, recursive }
+    const inherited = data.systemTemplates?.[systemId]
+    const library: Library = {
+      id: randomUUID(),
+      systemId,
+      directory,
+      recursive,
+      ...(inherited !== undefined && { template: inherited }),
+    }
     await this.save({ ...data, libraries: [...data.libraries, library] })
     return library
   }
@@ -94,6 +108,21 @@ export class LibraryStore {
     )
     await this.save({ ...data, libraries: updated })
     return updated.find((library) => library.id === id)
+  }
+
+  /** Guarda o padrão de nomes do console, para as próximas bibliotecas dele. */
+  async setSystemTemplate(systemId: string, template: string): Promise<void> {
+    const data = await this.load()
+    const systemTemplates = { ...data.systemTemplates }
+
+    if (template.trim() === '') delete systemTemplates[systemId]
+    else systemTemplates[systemId] = template
+
+    await this.save({ ...data, systemTemplates })
+  }
+
+  async systemTemplate(systemId: string): Promise<string | undefined> {
+    return (await this.load()).systemTemplates?.[systemId]
   }
 
   async remove(id: string): Promise<void> {
@@ -108,6 +137,10 @@ export class LibraryStore {
 /** Cache e journal ficam junto da coleção: quem move a pasta leva os dois consigo. */
 export function hashCachePathFor(library: Library): string {
   return join(library.directory, '.romorg', 'hashes.json')
+}
+
+export function scanSnapshotPathFor(library: Library): string {
+  return join(library.directory, '.romorg', 'scan.json')
 }
 
 /** O journal fica junto da coleção: quem move a pasta leva o histórico de undo junto. */

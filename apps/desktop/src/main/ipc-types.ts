@@ -29,6 +29,10 @@ export interface ScanSummaryDto {
   libraryId: string
   rows: ScanRow[]
   failures: { filePath: string; reason: string }[]
+  /** Veio de um scan anterior, não de uma identificação feita agora. */
+  restored?: boolean
+  /** Arquivos do snapshot sumiram do disco: a lista pode estar defasada. */
+  stale?: boolean
 }
 
 export interface PlanRow {

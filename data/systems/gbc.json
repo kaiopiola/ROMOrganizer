@@ -4,5 +4,5 @@
   "manufacturer": "Nintendo",
   "extensions": ["gbc"],
   "libretroDat": "Nintendo - Game Boy Color",
-  "defaultTemplate": "{title}[ ({region})][ ({revision})].{ext}"
+  "defaultTemplate": "{region}/{title}.{ext}"
 }
