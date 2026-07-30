@@ -21,6 +21,17 @@ function rulePacksDirectory(): string {
 }
 
 /**
+ * Ícone da janela, só no Linux — macOS e Windows já o tiram do bundle (`.app`/`.exe`). Sem
+ * isto, a janela e a barra de tarefas do Linux ficam com o ícone padrão do Electron.
+ */
+function windowIcon(): string | undefined {
+  if (process.platform !== 'linux') return undefined
+  return IS_DEV
+    ? fileURLToPath(new URL('../../build/icon.png', import.meta.url))
+    : join(process.resourcesPath, 'icon.png')
+}
+
+/**
  * O idioma precisa estar disponível no carregamento do renderer, antes do primeiro render —
  * buscá-lo por IPC deixaria a interface aparecer no idioma errado e trocar depois. Por isso
  * ele viaja como argumento da janela.
@@ -34,6 +45,7 @@ function createWindow(language: string): void {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#0a0a0a',
+    icon: windowIcon(),
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: fileURLToPath(new URL('../preload/index.mjs', import.meta.url)),

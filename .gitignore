@@ -6,6 +6,12 @@ release/
 coverage/
 *.tsbuildinfo
 
+# O `build/` acima ignora saídas de build, mas `apps/desktop/build/` é o diretório de
+# recursos do electron-builder — o ícone mora ali e é fonte, tem que ir versionado. Sem isto
+# ele não chega ao CI e o app sai com o ícone padrão do Electron.
+!apps/desktop/build/
+!apps/desktop/build/**
+
 .DS_Store
 Thumbs.db
 

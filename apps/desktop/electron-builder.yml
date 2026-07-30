@@ -17,6 +17,10 @@ extraResources:
   # As notas de versão vão junto: a aba que as mostra precisa funcionar sem rede.
   - from: ../../changelog
     to: changelog
+  # No Linux o ícone da janela é definido em runtime (mac e Windows usam o do bundle), então
+  # o png precisa existir dentro de resources/.
+  - from: build/icon.png
+    to: icon.png
 
 publish:
   provider: github
