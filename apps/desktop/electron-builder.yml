@@ -22,6 +22,10 @@ publish:
   provider: github
   owner: kaiopiola
   repo: ROMOrganizer
+  # Sem isto o electron-builder publica como rascunho (o padrão dele), e a release só fica
+  # visível — e vista pelo updater — depois de um "publish" manual. Como a intenção é lançar no
+  # push, ela sai já publicada. Os três jobs da matriz sobem para a mesma release v<versão>.
+  releaseType: release
 
 mac:
   category: public.app-category.utilities
