@@ -154,6 +154,27 @@ export class DatIndex {
     return null
   }
 
+  /**
+   * Todas as ROMs indexadas.
+   *
+   * É o outro lado da identificação: comparar a coleção com o DAT exige saber o que o DAT tem,
+   * não só responder por hash. Um DAT de cartucho fica na casa de milhares de linhas, então
+   * carregar tudo é aceitável; para sets muito maiores, valeria paginar.
+   */
+  allEntries(datSource?: string): IndexMatch[] {
+    const where = datSource === undefined ? '' : 'WHERE dat_source.name = ?'
+    const statement = this.db.prepare(
+      `SELECT ${SELECT_COLUMNS}
+       FROM rom JOIN dat_source ON dat_source.id = rom.source_id
+       ${where}
+       ORDER BY dat_source.name, rom.game_name`,
+    )
+
+    return (datSource === undefined
+      ? statement.all()
+      : statement.all(datSource)) as unknown as IndexMatch[]
+  }
+
   /** DATs presentes no índice, para a interface mostrar o que está carregado. */
   sources(): { name: string; version: string | null; romCount: number }[] {
     return this.db

@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { SystemRulePack } from '@romorg/core/browser'
 import type { Library } from '../../main/libraries.ts'
-import type { JournalSummary, PlanDto, ScanSummaryDto } from '../../main/ipc-types.ts'
+import type {
+  AuditReportDto,
+  JournalSummary,
+  PlanDto,
+  ScanSummaryDto,
+} from '../../main/ipc-types.ts'
 import { t } from './i18n.ts'
 import { useJobQueue, type JobOutcome } from './useJobQueue.ts'
 import { LibrarySidebar } from './components/LibrarySidebar.tsx'
 import { ScanTable } from './components/ScanTable.tsx'
 import { PlanPanel } from './components/PlanPanel.tsx'
 import { HistoryPanel } from './components/HistoryPanel.tsx'
+import { AuditPanel } from './components/AuditPanel.tsx'
 import { QueueBar } from './components/QueueBar.tsx'
 import { QueueScreen } from './components/QueueScreen.tsx'
 import { TemplateEditor } from './components/TemplateEditor.tsx'
@@ -25,10 +31,16 @@ export function App() {
   const [journals, setJournals] = useState<JournalSummary[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string> | null>(null)
 
+  // Preferências do app, não da biblioteca: quem escolhe a base de dados escolhe uma vez.
   const [useLibretro, setUseLibretro] = useState(true)
   const [localDatPaths, setLocalDatPaths] = useState<string[]>([])
   const [includeFilenameMatches, setIncludeFilenameMatches] = useState(false)
   const [allowAmbiguous, setAllowAmbiguous] = useState(false)
+
+  const [audit, setAudit] = useState<AuditReportDto | null>(null)
+  const [auditRegions, setAuditRegions] = useState<string[]>([])
+  const [auditUnreleased, setAuditUnreleased] = useState(false)
+  const [auditing, setAuditing] = useState(false)
 
   const [queueOpen, setQueueOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -89,8 +101,21 @@ export function App() {
       setSystems(list)
       setIcons(await window.romorg.icons.forSystems(list.map((system) => system.id)))
     })
+    void window.romorg.preferences.get().then((preferences) => {
+      setUseLibretro(preferences.useLibretro)
+      setLocalDatPaths(preferences.localDatPaths)
+    })
     void refreshLibraries()
   }, [refreshLibraries])
+
+  async function updatePreferences(changes: {
+    useLibretro?: boolean
+    localDatPaths?: string[]
+  }): Promise<void> {
+    const saved = await window.romorg.preferences.set(changes)
+    setUseLibretro(saved.useLibretro)
+    setLocalDatPaths(saved.localDatPaths)
+  }
 
   /**
    * Trocar de biblioteca descarta o que era da anterior e traz o que já se sabe desta.
@@ -104,6 +129,7 @@ export function App() {
     setPlan(null)
     setNotice(null)
     setSelectedIds(null)
+    setAudit(null)
 
     if (activeId === null) {
       setJournals([])
@@ -148,6 +174,24 @@ export function App() {
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [includeFilenameMatches, allowAmbiguous, template, quarantineDirectory, activeId, hasScan])
+
+  async function runAudit(
+    regions = auditRegions,
+    includeUnreleased = auditUnreleased,
+  ): Promise<void> {
+    if (activeId === null) return
+    setAuditing(true)
+    setError(null)
+    try {
+      setAudit(
+        await window.romorg.audit.run(activeId, { regions, includeUnreleased, datSource: null }),
+      )
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setAuditing(false)
+    }
+  }
 
   async function updateLibrary(changes: Partial<Library>): Promise<void> {
     if (active === null) return
@@ -255,7 +299,9 @@ export function App() {
                 <input
                   type="checkbox"
                   checked={useLibretro}
-                  onChange={(event) => setUseLibretro(event.target.checked)}
+                  onChange={(event) =>
+                    void updatePreferences({ useLibretro: event.target.checked })
+                  }
                 />
                 {t.useLibretro}
               </label>
@@ -264,7 +310,9 @@ export function App() {
                 type="button"
                 onClick={() =>
                   void window.romorg.dats.chooseLocal().then((paths) => {
-                    if (paths.length > 0) setLocalDatPaths((current) => [...current, ...paths])
+                    if (paths.length > 0) {
+                      void updatePreferences({ localDatPaths: [...localDatPaths, ...paths] })
+                    }
                   })
                 }
                 className="rounded-md border border-neutral-700 px-3 py-2 text-sm"
@@ -272,8 +320,15 @@ export function App() {
                 {t.chooseLocalDats}
               </button>
               {localDatPaths.length > 0 && (
-                <span className="text-xs text-neutral-500">
+                <span className="flex items-center gap-2 text-xs text-neutral-500">
                   {t.localDatsCount(localDatPaths.length)}
+                  <button
+                    type="button"
+                    onClick={() => void updatePreferences({ localDatPaths: [] })}
+                    className="text-neutral-500 hover:text-red-400"
+                  >
+                    {t.clearLocalDats}
+                  </button>
                 </span>
               )}
             </section>
@@ -312,6 +367,23 @@ export function App() {
                 onApply={() => enqueue('apply')}
               />
             )}
+
+            <AuditPanel
+              libraryId={active.id}
+              report={audit}
+              busy={auditing}
+              regions={auditRegions}
+              includeUnreleased={auditUnreleased}
+              onRun={() => void runAudit()}
+              onRegionsChange={(next) => {
+                setAuditRegions(next)
+                if (audit !== null) void runAudit(next, auditUnreleased)
+              }}
+              onIncludeUnreleasedChange={(next) => {
+                setAuditUnreleased(next)
+                if (audit !== null) void runAudit(auditRegions, next)
+              }}
+            />
 
             <HistoryPanel journals={journals} onUndo={(path) => void undo(path)} />
           </div>

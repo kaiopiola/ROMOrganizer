@@ -20,9 +20,23 @@ export interface Library {
 /** Campos editáveis de uma biblioteca. */
 export type LibraryChanges = Partial<Omit<Library, 'id'>>
 
+/**
+ * Preferências que valem para o app inteiro, não por biblioteca.
+ *
+ * Qual base de dados usar é decisão do usuário, não da pasta: reconfigurar isso a cada
+ * biblioteca aberta seria repetir a mesma resposta indefinidamente.
+ */
+export interface Preferences {
+  useLibretro: boolean
+  localDatPaths: string[]
+}
+
+const DEFAULT_PREFERENCES: Preferences = { useLibretro: true, localDatPaths: [] }
+
 interface LibrariesFile {
   version: 1
   libraries: Library[]
+  preferences?: Preferences
   /**
    * Padrão de nomes por console, herdado por bibliotecas novas.
    *
@@ -123,6 +137,17 @@ export class LibraryStore {
 
   async systemTemplate(systemId: string): Promise<string | undefined> {
     return (await this.load()).systemTemplates?.[systemId]
+  }
+
+  async preferences(): Promise<Preferences> {
+    return { ...DEFAULT_PREFERENCES, ...(await this.load()).preferences }
+  }
+
+  async setPreferences(changes: Partial<Preferences>): Promise<Preferences> {
+    const data = await this.load()
+    const preferences = { ...DEFAULT_PREFERENCES, ...data.preferences, ...changes }
+    await this.save({ ...data, preferences })
+    return preferences
   }
 
   async remove(id: string): Promise<void> {

@@ -66,6 +66,18 @@ export { scanDirectory, type ScanOptions, type ScanSummary } from './identify/sc
 export { HashCache, type CacheKey } from './identify/hash-cache.ts'
 
 export {
+  auditCollection,
+  regionsIn,
+  type AuditDuplicate,
+  type AuditGame,
+  type AuditOptions,
+  type AuditReport,
+  type AuditStatus,
+  type AuditUnrecognized,
+} from './audit/audit.ts'
+export { auditToCsv, auditToMarkdown } from './audit/export.ts'
+
+export {
   isCaseOnlyRename,
   planRenames,
   type PlannedOperation,

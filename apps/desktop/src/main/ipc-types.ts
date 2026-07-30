@@ -102,6 +102,33 @@ export interface ApplyProgress {
   currentFile: string
 }
 
+export interface AuditOptionsDto {
+  regions: string[]
+  includeUnreleased: boolean
+  datSource: string | null
+}
+
+export interface AuditRow {
+  gameName: string
+  regions: string[]
+  status: 'have' | 'missing'
+  datSource: string
+  filePath: string | null
+}
+
+export interface AuditReportDto {
+  total: number
+  have: number
+  missing: number
+  completion: number
+  games: AuditRow[]
+  duplicates: { gameName: string; filePaths: string[] }[]
+  unrecognized: { fileName: string; filePath: string }[]
+  datSources: string[]
+  /** Todas as regiões vistas, para montar o filtro sem outra chamada. */
+  availableRegions: string[]
+}
+
 export interface ScanProgress {
   libraryId: string
   done: number

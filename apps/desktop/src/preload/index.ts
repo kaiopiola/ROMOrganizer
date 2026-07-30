@@ -1,10 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { SystemRulePack } from '@romorg/core'
-import type { Library, LibraryChanges } from '../main/libraries.ts'
+import type { Library, LibraryChanges, Preferences } from '../main/libraries.ts'
 import type {
-  ApplyResultDto,
-  JournalSummary,
   ApplyProgress,
+  ApplyResultDto,
+  AuditOptionsDto,
+  AuditReportDto,
+  JournalSummary,
   PlanOptionsDto,
   PlanResultDto,
   ScanProgress,
@@ -24,6 +26,12 @@ const api = {
   platform: process.platform,
 
   listSystems: (): Promise<SystemRulePack[]> => ipcRenderer.invoke('systems:list'),
+
+  preferences: {
+    get: (): Promise<Preferences> => ipcRenderer.invoke('preferences:get'),
+    set: (changes: Partial<Preferences>): Promise<Preferences> =>
+      ipcRenderer.invoke('preferences:set', changes),
+  },
 
   libraries: {
     list: (): Promise<Library[]> => ipcRenderer.invoke('libraries:list'),
@@ -65,6 +73,16 @@ const api = {
       ipcRenderer.on('apply:progress', handler)
       return () => ipcRenderer.off('apply:progress', handler)
     },
+  },
+
+  audit: {
+    run: (libraryId: string, options: AuditOptionsDto): Promise<AuditReportDto> =>
+      ipcRenderer.invoke('audit:run', libraryId, options),
+    export: (
+      libraryId: string,
+      report: AuditReportDto,
+      format: 'csv' | 'markdown',
+    ): Promise<string | null> => ipcRenderer.invoke('audit:export', libraryId, report, format),
   },
 
   journals: {

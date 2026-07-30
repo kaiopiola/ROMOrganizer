@@ -1,13 +1,17 @@
-import { readdir } from 'node:fs/promises'
-import { basename } from 'node:path'
+import { readdir, writeFile } from 'node:fs/promises'
+import { basename, join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import type { IpcMainInvokeEvent } from 'electron'
 import {
+  auditCollection,
+  auditToCsv,
+  auditToMarkdown,
   DatIndex,
   executePlan,
   HashCache,
   planRenames,
   readJournal,
+  regionsIn,
   reproposeName,
   scanDirectory,
   undoFromJournal,
@@ -24,10 +28,13 @@ import {
   type Library,
   type LibraryChanges,
   type LibraryStore,
+  type Preferences,
   scanSnapshotPathFor,
 } from './libraries.ts'
 import type {
   ApplyResultDto,
+  AuditOptionsDto,
+  AuditReportDto,
   JournalSummary,
   ApplyProgress,
   PlanDto,
@@ -169,6 +176,12 @@ export function registerIpc(
   ipcMain.handle('systems:list', () => registry.all())
 
   ipcMain.handle('libraries:list', () => libraries.list())
+
+  ipcMain.handle('preferences:get', () => libraries.preferences())
+
+  ipcMain.handle('preferences:set', (_event, changes: Partial<Preferences>) =>
+    libraries.setPreferences(changes),
+  )
 
   ipcMain.handle('libraries:choose', async (_event, systemId: string) => {
     if (registry.get(systemId) === undefined) throw new Error(`sistema desconhecido: ${systemId}`)
@@ -418,6 +431,101 @@ export function registerIpc(
         journalPath: result.journalPath,
         cancelled: result.cancelled,
       }
+    },
+  )
+
+  /**
+   * Compara a coleção identificada com o DAT.
+   *
+   * O índice é remontado aqui porque ele não sobrevive ao scan — mas isso é barato: os DATs
+   * vêm do cache em disco, e a auditoria em si não toca nos arquivos da coleção.
+   */
+  ipcMain.handle(
+    'audit:run',
+    async (_event, libraryId: string, options: AuditOptionsDto): Promise<AuditReportDto> => {
+      const library = await requireLibrary(libraryId)
+      const system = registry.get(library.systemId)
+      if (system === undefined) throw new Error(`sistema desconhecido: ${library.systemId}`)
+
+      const identifications = identificationsOf(stateOf(libraryId))
+      const preferences = await libraries.preferences()
+
+      const index = new DatIndex()
+      try {
+        if (preferences.useLibretro) {
+          for (const dat of await datCache.getFor(system)) index.importDat(dat)
+        }
+        for (const path of preferences.localDatPaths) {
+          index.importDat(await loadLocalDat(path))
+        }
+
+        const report = auditCollection(identifications, index, {
+          regions: options.regions,
+          includeUnreleased: options.includeUnreleased,
+          ...(options.datSource !== null && { datSource: options.datSource }),
+        })
+
+        // As regiões disponíveis saem de uma auditoria sem filtro: filtrar por USA não pode
+        // fazer as outras opções sumirem da lista.
+        const unfiltered = auditCollection(identifications, index, {
+          includeUnreleased: options.includeUnreleased,
+        })
+
+        return {
+          total: report.total,
+          have: report.have,
+          missing: report.missing,
+          completion: report.completion,
+          games: report.games.map((game) => ({
+            gameName: game.gameName,
+            regions: game.regions,
+            status: game.status,
+            datSource: game.datSource,
+            filePath: game.filePath ?? null,
+          })),
+          duplicates: report.duplicates,
+          unrecognized: report.unrecognized.map((entry) => ({
+            fileName: entry.fileName,
+            filePath: entry.filePath,
+          })),
+          datSources: report.datSources,
+          availableRegions: regionsIn(unfiltered),
+        }
+      } finally {
+        index.close()
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'audit:export',
+    async (_event, libraryId: string, report: AuditReportDto, format: 'csv' | 'markdown') => {
+      const library = await requireLibrary(libraryId)
+      const system = registry.get(library.systemId)
+      const suggested = `${system?.id ?? 'auditoria'}-${format === 'csv' ? 'auditoria.csv' : 'auditoria.md'}`
+
+      const result = await dialog.showSaveDialog({
+        defaultPath: join(library.directory, suggested),
+        filters: [
+          format === 'csv'
+            ? { name: 'CSV', extensions: ['csv'] }
+            : { name: 'Markdown', extensions: ['md'] },
+        ],
+      })
+      if (result.canceled || result.filePath === undefined) return null
+
+      // O relatório vem do renderer só como dado de formatação — o que ele descreve já foi
+      // calculado aqui, e nada do que ele contenha vira operação em disco além deste arquivo.
+      const content =
+        format === 'csv'
+          ? auditToCsv(report as unknown as Parameters<typeof auditToCsv>[0])
+          : auditToMarkdown(
+              report as unknown as Parameters<typeof auditToMarkdown>[0],
+              system?.name ?? 'Auditoria',
+            )
+
+      await writeFile(result.filePath, content, 'utf8')
+      return result.filePath
     },
   )
 
