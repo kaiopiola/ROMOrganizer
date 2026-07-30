@@ -5,8 +5,9 @@ import { t } from '../i18n.ts'
 interface Props {
   jobs: Job[]
   libraries: Library[]
-  expanded: boolean
-  onToggle: () => void
+  /** A página da fila está aberta — a barra deixa de convidar ao clique. */
+  active: boolean
+  onOpen: () => void
 }
 
 function labelFor(job: Job, libraries: Library[]): string {
@@ -22,7 +23,7 @@ function labelFor(job: Job, libraries: Library[]): string {
  * depois — assim o progresso não disputa espaço com a lista de arquivos, e o usuário pode
  * continuar mexendo em outra biblioteca sem perder o acompanhamento de vista.
  */
-export function QueueBar({ jobs, libraries, expanded, onToggle }: Props) {
+export function QueueBar({ jobs, libraries, active, onOpen }: Props) {
   const running = jobs.find((job) => job.status === 'running')
   const pending = jobs.filter((job) => job.status === 'pending')
   const failed = jobs.filter((job) => job.status === 'failed')
@@ -35,10 +36,9 @@ export function QueueBar({ jobs, libraries, expanded, onToggle }: Props) {
   return (
     <button
       type="button"
-      onClick={onToggle}
-      aria-expanded={expanded}
+      onClick={onOpen}
       className={`flex w-full shrink-0 items-center gap-4 border-t px-6 py-2 text-left text-sm transition-colors ${
-        expanded
+        active
           ? 'border-neutral-700 bg-neutral-800'
           : 'border-neutral-800 bg-neutral-900 hover:bg-neutral-800/70'
       }`}
@@ -73,7 +73,7 @@ export function QueueBar({ jobs, libraries, expanded, onToggle }: Props) {
         </span>
       )}
 
-      <span className="shrink-0 text-xs text-neutral-500">{expanded ? '▾' : '▴'}</span>
+      {!active && <span className="shrink-0 text-xs text-neutral-500">{t.queueOpen}</span>}
     </button>
   )
 }

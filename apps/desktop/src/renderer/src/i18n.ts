@@ -30,6 +30,7 @@ const ptBR = {
   restoredStale:
     'Alguns arquivos do último resultado não estão mais na pasta. Identifique de novo para atualizar.',
   queueTitle: 'Fila',
+  queueOpen: 'abrir',
   queueClear: 'Limpar concluídos',
   queueEmpty: 'Nada na fila.',
   queueIdle: 'Fila concluída',
@@ -170,6 +171,7 @@ const en: Dictionary = {
   restoredStale:
     'Some files from the last result are no longer in the folder. Identify again to refresh.',
   queueTitle: 'Queue',
+  queueOpen: 'open',
   queueClear: 'Clear finished',
   queueEmpty: 'Nothing queued.',
   queueIdle: 'Queue finished',

@@ -46,7 +46,6 @@ import type {
   PlanDto,
   PlanOptionsDto,
   PlanResultDto,
-  PlaylistPlanDto,
   PlaylistStatusDto,
   ScanProgress,
   ScanRow,
@@ -190,6 +189,30 @@ export function registerIpc(
     return state.order
       .map((id) => state.identifications.get(id))
       .filter((value): value is Identification => value !== undefined)
+  }
+
+  /**
+   * Identificações de uma biblioteca, da memória ou do snapshot em disco.
+   *
+   * Toda operação que consome um scan precisa passar por aqui. Ler só a memória fazia a
+   * auditoria e as playlists acharem que a coleção nunca foi identificada — o que só era
+   * verdade para aquela sessão, e obrigava a abrir cada biblioteca antes de qualquer ação
+   * sobre o conjunto.
+   */
+  async function loadIdentifications(library: Library): Promise<Identification[]> {
+    const state = stateOf(library.id)
+    if (state.order.length > 0) return identificationsOf(state)
+
+    const snapshot = await ScanSnapshot.load(scanSnapshotPathFor(library), registry)
+    if (snapshot === null) return []
+
+    // Guarda na memória: a próxima operação sobre esta biblioteca não relê o disco.
+    state.identifications = new Map(
+      snapshot.identifications.map((identification) => [rowIdOf(identification), identification]),
+    )
+    state.order = snapshot.identifications.map(rowIdOf)
+
+    return snapshot.identifications
   }
 
   async function requireLibrary(libraryId: string): Promise<Library> {
@@ -370,8 +393,7 @@ export function registerIpc(
 
   ipcMain.handle('plan:build', async (_event, libraryId: string, options: PlanOptionsDto) => {
     const library = await requireLibrary(libraryId)
-    const state = stateOf(libraryId)
-    const identifications = identificationsOf(state)
+    const identifications = await loadIdentifications(library)
     const template = optional(options.template)
 
     const plan = planRenames(identifications, planOptionsFor(library, options, identifications))
@@ -422,7 +444,7 @@ export function registerIpc(
     ): Promise<ApplyResultDto> => {
       const library = await requireLibrary(libraryId)
       const state = stateOf(libraryId)
-      const identifications = identificationsOf(state)
+      const identifications = await loadIdentifications(library)
       const plan = planRenames(identifications, planOptionsFor(library, options, identifications))
 
       const selected = selectedIds === null ? null : new Set(selectedIds)
@@ -486,7 +508,7 @@ export function registerIpc(
       const system = registry.get(library.systemId)
       if (system === undefined) throw new Error(`sistema desconhecido: ${library.systemId}`)
 
-      const identifications = identificationsOf(stateOf(libraryId))
+      const identifications = await loadIdentifications(library)
       const index = await buildIndexFor(library)
 
       try {
@@ -561,47 +583,6 @@ export function registerIpc(
   )
 
   /**
-   * O que a geração de playlists produziria. Não escreve nada.
-   *
-   * Mesmo critério do rename: o usuário vê o que vai acontecer antes de acontecer. Aqui o risco
-   * é menor — criar arquivo não apaga nada — mas sobrescrever uma playlist que ele editou à mão
-   * seria perda igual.
-   */
-  ipcMain.handle(
-    'playlists:preview',
-    async (_event, libraryId: string): Promise<PlaylistPlanDto> => {
-      const library = await requireLibrary(libraryId)
-      const system = registry.get(library.systemId)
-      if (system === undefined) throw new Error(`sistema desconhecido: ${library.systemId}`)
-
-      const identifications = identificationsOf(stateOf(libraryId))
-      const groups = detectDiscGroups(identifications)
-      const playlist = buildLpl(identifications, system)
-
-      const m3uFiles = await Promise.all(
-        groups.map(async (group) => {
-          const fileName = m3uNameFor(group)
-          return {
-            fileName,
-            discs: group.discs.map((disc) => disc.fileName),
-            exists: await fileExists(join(library.directory, fileName)),
-          }
-        }),
-      )
-
-      const lplName = lplNameFor(system)
-      return {
-        m3u: m3uFiles,
-        lpl: {
-          fileName: lplName,
-          items: playlist.items.length,
-          exists: await fileExists(join(library.directory, lplName)),
-        },
-      }
-    },
-  )
-
-  /**
    * Estado das playlists de todas as bibliotecas.
    *
    * A gestão é por coleção inteira, não por pasta aberta: quem mantém oito consoles quer ver
@@ -613,7 +594,7 @@ export function registerIpc(
     return Promise.all(
       all.map(async (library) => {
         const system = registry.get(library.systemId)
-        const identifications = identificationsOf(stateOf(library.id))
+        const identifications = await loadIdentifications(library)
         const groups = detectDiscGroups(identifications)
 
         const lplName = system === undefined ? null : lplNameFor(system)
@@ -656,7 +637,7 @@ export function registerIpc(
       const system = registry.get(library.systemId)
       if (system === undefined) throw new Error(`sistema desconhecido: ${library.systemId}`)
 
-      const identifications = identificationsOf(stateOf(libraryId))
+      const identifications = await loadIdentifications(library)
       const written: string[] = []
       const skipped: string[] = []
 

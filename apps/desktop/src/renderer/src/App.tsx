@@ -15,6 +15,7 @@ import { PlanPanel } from './components/PlanPanel.tsx'
 import { HistoryPanel } from './components/HistoryPanel.tsx'
 import { AuditPanel } from './components/AuditPanel.tsx'
 import { PlaylistsScreen } from './components/PlaylistsScreen.tsx'
+import type { View } from './views.ts'
 import { QueueBar } from './components/QueueBar.tsx'
 import { QueueScreen } from './components/QueueScreen.tsx'
 import { TemplateEditor } from './components/TemplateEditor.tsx'
@@ -40,8 +41,7 @@ export function App() {
   const [auditUnreleased, setAuditUnreleased] = useState(false)
   const [auditing, setAuditing] = useState(false)
 
-  const [view, setView] = useState<'library' | 'playlists'>('library')
-  const [queueOpen, setQueueOpen] = useState(false)
+  const [view, setView] = useState<View>('library')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -237,6 +237,9 @@ export function App() {
         activeId={activeId}
         view={view}
         onViewChange={setView}
+        activeJobs={
+          queue.jobs.filter((job) => job.status === 'running' || job.status === 'pending').length
+        }
         jobFor={queue.activeFor}
         onSelect={setActiveId}
         onChanged={refreshLibraries}
@@ -255,15 +258,21 @@ export function App() {
             <h1 className="truncate text-lg font-semibold">
               {view === 'playlists'
                 ? t.playlistsTitle
-                : (activeSystem?.name ?? (active === null ? t.appName : active.systemId))}
+                : view === 'queue'
+                  ? t.queueTitle
+                  : (activeSystem?.name ?? (active === null ? t.appName : active.systemId))}
             </h1>
             <p className="truncate text-sm text-neutral-400" title={active?.directory}>
-              {view === 'playlists' ? t.playlistsScreenHint : (active?.directory ?? t.tagline)}
+              {view === 'playlists'
+                ? t.playlistsScreenHint
+                : view === 'queue'
+                  ? t.queueSerialNote
+                  : (active?.directory ?? t.tagline)}
             </p>
           </div>
         </header>
 
-        {queueOpen ? (
+        {view === 'queue' ? (
           <QueueScreen
             jobs={queue.jobs}
             libraries={libraries}
@@ -391,8 +400,8 @@ export function App() {
         <QueueBar
           jobs={queue.jobs}
           libraries={libraries}
-          expanded={queueOpen}
-          onToggle={() => setQueueOpen((current) => !current)}
+          active={view === 'queue'}
+          onOpen={() => setView('queue')}
         />
       </main>
     </div>

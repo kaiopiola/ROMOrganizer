@@ -5,6 +5,7 @@ import type { Job } from '../useJobQueue.ts'
 import { t } from '../i18n.ts'
 import { SystemPickerModal } from './SystemPickerModal.tsx'
 import { SystemIcon } from './SystemIcon.tsx'
+import type { View } from '../views.ts'
 
 interface Props {
   systems: SystemRulePack[]
@@ -12,8 +13,10 @@ interface Props {
   icons: Record<string, string | null>
   activeId: string | null
   /** Tela aberta: a lista de bibliotecas some do destaque quando é outra. */
-  view: 'library' | 'playlists'
-  onViewChange: (view: 'library' | 'playlists') => void
+  view: View
+  onViewChange: (view: View) => void
+  /** Quantos trabalhos estão rodando ou na fila, para o item de navegação mostrar. */
+  activeJobs: number
   /** Trabalho em andamento ou na fila para cada biblioteca. */
   jobFor: (libraryId: string) => Job | undefined
   onSelect: (id: string) => void
@@ -27,6 +30,7 @@ export function LibrarySidebar({
   activeId,
   view,
   onViewChange,
+  activeJobs,
   jobFor,
   onSelect,
   onChanged,
@@ -122,11 +126,26 @@ export function LibrarySidebar({
         <button
           type="button"
           onClick={() => onViewChange('playlists')}
-          className={`mb-2 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm ${
+          className={`mb-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm ${
             view === 'playlists' ? 'bg-neutral-800' : 'hover:bg-neutral-800/50'
           }`}
         >
           {t.playlistsTitle}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onViewChange('queue')}
+          className={`mb-2 flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-sm ${
+            view === 'queue' ? 'bg-neutral-800' : 'hover:bg-neutral-800/50'
+          }`}
+        >
+          {t.queueTitle}
+          {activeJobs > 0 && (
+            <span className="rounded-full bg-emerald-600 px-1.5 text-xs text-white">
+              {activeJobs}
+            </span>
+          )}
         </button>
 
         <button
