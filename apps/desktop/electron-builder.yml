@@ -53,6 +53,15 @@ nsis:
 
 linux:
   category: Utility
+  # O nome do pacote no monorepo é `@romorg/desktop`, e o electron-builder o usaria como nome
+  # do executável — `@` e `/` não são válidos em caminho, e o build falha.
+  executableName: romorganizer
+  # Sem isto, os ambientes de desktop não associam a janela aberta ao atalho instalado.
+  # O nome em si vem do package.json; aqui só se liga a sincronização.
+  syncDesktopName: true
+  # Obrigatório para empacotar no Linux: sem um mantenedor com email o build falha, e o
+  # fallback para o campo `author` do package.json nem sempre é suficiente.
+  maintainer: Kaio Piola <kaiopiola@users.noreply.github.com>
   synopsis: Organiza coleções de ROMs identificando os jogos por hash
   target:
     - target: AppImage

@@ -5,6 +5,15 @@
   "type": "module",
   "license": "GPL-3.0-or-later",
   "description": "Aplicativo desktop do ROMOrganizer.",
+  "author": {
+    "name": "Kaio Piola",
+    "email": "kaiopiola@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/kaiopiola/ROMOrganizer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kaiopiola/ROMOrganizer.git"
+  },
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -31,5 +40,6 @@
     "react-dom": "^19.2.8",
     "tailwindcss": "^4.3.3",
     "vite": "^7.3.6"
-  }
+  },
+  "desktopName": "romorganizer.desktop"
 }
