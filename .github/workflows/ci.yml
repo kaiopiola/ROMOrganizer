@@ -4,15 +4,17 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  check:
-    name: Lint, tipos e testes
+  verify:
+    name: Verificar
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v5
 
@@ -30,14 +32,15 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
 
-  build:
-    name: Build (${{ matrix.os }})
-    needs: check
+  package:
+    name: Empacotar (${{ matrix.os }})
+    needs: verify
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v5
 
@@ -50,4 +53,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm build
+      # Empacota sem publicar: garante que o electron-builder funciona nos três
+      # sistemas antes de existir release. O `--publish never` é explícito porque o
+      # electron-builder publica por conta própria ao detectar CI, e este workflow
+      # roda a cada push na main — o que criaria release paralela à do release.yml.
+      - name: Build empacotado
+        run: pnpm --filter @romorg/desktop exec electron-builder --dir --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false

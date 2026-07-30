@@ -25,6 +25,7 @@ Thumbs.db
 !CONTRIBUTING*.md
 !TODO.md
 !docs/**/*.md
+!changelog/*.md
 !.github/**/*.md
 *.n64
 *.v64

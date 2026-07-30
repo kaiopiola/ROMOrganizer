@@ -75,6 +75,23 @@ pnpm lint && pnpm typecheck && pnpm test
   fix(snes): não descontar header quando o tamanho não é múltiplo de 1024
   ```
 
+## Publicando uma versão
+
+Não há tag para criar na mão. **A versão em `apps/desktop/package.json` decide**: um push na
+`main` publica uma release se aquela versão ainda não tiver uma.
+
+Para publicar:
+
+1. Suba a versão em `apps/desktop/package.json` e em `package.json` — o workflow falha se as
+   duas divergirem, para nenhuma release sair com número ambíguo.
+2. Escreva `changelog/<versão>.en.md`, e `changelog/<versão>.pt-BR.md` se puder. O arquivo em
+   inglês é **obrigatório**: o workflow recusa publicar sem ele, porque é esse texto que vira o
+   corpo da release.
+3. Faça push na `main`.
+
+Escreva as notas para quem vai usar o app, não para quem escreveu o código. Diga o que mudou
+para essa pessoa; refactor, mudança de teste e limpeza interna ficam de fora.
+
 ## Reportando um erro de identificação
 
 É o tipo de issue mais útil. Inclua:

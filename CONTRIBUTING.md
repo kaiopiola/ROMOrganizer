@@ -78,6 +78,23 @@ pnpm lint && pnpm typecheck && pnpm test
   fix(snes): skip header stripping when size is not a multiple of 1024
   ```
 
+## Releasing
+
+There are no tags to create by hand. **The version in `apps/desktop/package.json` decides**:
+a push to `main` publishes a release if that version does not have one yet.
+
+To cut a release:
+
+1. Bump the version in `apps/desktop/package.json` and `package.json` — the workflow fails
+   if the two disagree, so a release never goes out with an ambiguous number.
+2. Write `changelog/<version>.en.md`, and `changelog/<version>.pt-BR.md` if you can. The
+   English file is **required**: the workflow refuses to publish without it, because that text
+   becomes the release body.
+3. Push to `main`.
+
+Write the notes for whoever will use the app, not for whoever wrote the code. Say what changed
+for them; leave refactors, test changes and internal cleanups out.
+
 ## Reporting a misidentified file
 
 This is the most useful kind of issue. Include:

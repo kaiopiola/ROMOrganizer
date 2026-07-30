@@ -1,22 +1,68 @@
 name: Release
 
+# A main é a branch de versões finais: todo push nela é candidato a release.
+# A versão de apps/desktop/package.json manda, e nada é publicado se já existir
+# release para ela — subir a versão é o que dispara uma publicação nova.
 on:
   push:
-    tags: ['v*']
-  # Permite testar o empacotamento sem publicar nada.
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    name: ${{ matrix.os }}
+  check:
+    name: Conferir versão
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.info.outputs.version }}
+      publish: ${{ steps.info.outputs.publish }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Decidir se publica
+        id: info
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./apps/desktop/package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # O root acompanha a versão do app. Divergir aqui faria a release sair com
+          # um número e o repositório declarar outro.
+          root="$(node -p "require('./package.json').version")"
+          if [ "$root" != "$version" ]; then
+            echo "package.json do root está em $root e o do app em $version" >&2
+            exit 1
+          fi
+
+          # Sem notas não há release: é esse texto que vira o corpo da publicação,
+          # e ele precisa existir antes de qualquer build.
+          if [ ! -f "changelog/${version}.en.md" ]; then
+            echo "Faltam as notas da versão ${version} em changelog/${version}.en.md" >&2
+            exit 1
+          fi
+
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "Versão $version já publicada; nada a fazer."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Versão $version ainda não publicada; seguindo para o build."
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    name: Publicar (${{ matrix.os }})
+    needs: check
+    if: needs.check.outputs.publish == 'true'
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v5
@@ -30,28 +76,48 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # A release não deve sair de um commit que não passa na verificação.
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test
+      # Release não sai de commit que não passa na verificação.
+      - name: Verificar
+        run: pnpm lint && pnpm typecheck && pnpm test
 
-      - name: Empacotar e publicar
-        # O electron-builder só publica quando o evento é uma tag; em execução manual, apenas
-        # empacota, o que serve para validar o build sem criar release.
-        run: pnpm --filter @romorg/desktop exec electron-builder --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+      # O publish cria a release e a tag v<versão>, e gera os latest*.yml que o
+      # updater lê para saber que existe versão nova.
+      - name: Publicar
+        run: pnpm --filter @romorg/desktop exec electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Sem certificado: desligar explicitamente evita que o electron-builder tente
-          # assinar e falhe no meio do empacotamento.
+          # Sem certificado: desligar explicitamente evita que o electron-builder
+          # tente assinar e falhe no meio do empacotamento. Enquanto isso durar, o
+          # auto-update não funciona no macOS — ver a seção de instalação no README.
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Guardar artefatos
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: romorganizer-${{ matrix.os }}
-          path: |
-            apps/desktop/release/*.dmg
-            apps/desktop/release/*.exe
-            apps/desktop/release/*.AppImage
-          if-no-files-found: ignore
+  notes:
+    name: Notas da versão
+    # Espera os três, mas roda mesmo se algum falhar: a release já existe e está
+    # pública, e sem este passo ela fica com a mensagem do commit no corpo.
+    needs: [check, release]
+    if: ${{ always() && needs.check.result == 'success' && needs.check.outputs.publish == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # Sai em inglês, com a versão em português logo abaixo, recolhida.
+      - name: Montar e aplicar as notas
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          cp "changelog/${VERSION}.en.md" notes.md
+
+          pt="changelog/${VERSION}.pt-BR.md"
+          if [ -f "$pt" ]; then
+            {
+              printf '\n---\n\n<details>\n<summary>Leia em português</summary>\n\n'
+              cat "$pt"
+              printf '\n</details>\n'
+            } >> notes.md
+          fi
+
+          gh release edit "v${VERSION}" --notes-file notes.md
