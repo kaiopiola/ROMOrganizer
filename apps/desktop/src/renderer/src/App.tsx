@@ -31,9 +31,6 @@ export function App() {
   const [journals, setJournals] = useState<JournalSummary[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string> | null>(null)
 
-  // Preferências do app, não da biblioteca: quem escolhe a base de dados escolhe uma vez.
-  const [useLibretro, setUseLibretro] = useState(true)
-  const [localDatPaths, setLocalDatPaths] = useState<string[]>([])
   const [includeFilenameMatches, setIncludeFilenameMatches] = useState(false)
   const [allowAmbiguous, setAllowAmbiguous] = useState(false)
 
@@ -52,7 +49,6 @@ export function App() {
   const template = active?.template ?? ''
   const quarantineDirectory = active?.quarantineDirectory ?? ''
   const planOptions = { includeFilenameMatches, allowAmbiguous, template, quarantineDirectory }
-  const scanOptions = { useLibretro, localDatPaths }
 
   const refreshLibraries = useCallback(async () => {
     setLibraries(await window.romorg.libraries.list())
@@ -80,7 +76,7 @@ export function App() {
           )
         }
         // Depois de renomear, os nomes em tela não valem mais.
-        await window.romorg.scan.start(outcome.libraryId, scanOptions)
+        await window.romorg.scan.start(outcome.libraryId)
       }
 
       if (outcome.libraryId !== activeId) return
@@ -91,7 +87,7 @@ export function App() {
       setSelectedIds(null)
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeId, refreshJournals, useLibretro, localDatPaths, template, quarantineDirectory],
+    [activeId, refreshJournals, template, quarantineDirectory],
   )
 
   const queue = useJobQueue(handleJobFinished)
@@ -101,21 +97,8 @@ export function App() {
       setSystems(list)
       setIcons(await window.romorg.icons.forSystems(list.map((system) => system.id)))
     })
-    void window.romorg.preferences.get().then((preferences) => {
-      setUseLibretro(preferences.useLibretro)
-      setLocalDatPaths(preferences.localDatPaths)
-    })
     void refreshLibraries()
   }, [refreshLibraries])
-
-  async function updatePreferences(changes: {
-    useLibretro?: boolean
-    localDatPaths?: string[]
-  }): Promise<void> {
-    const saved = await window.romorg.preferences.set(changes)
-    setUseLibretro(saved.useLibretro)
-    setLocalDatPaths(saved.localDatPaths)
-  }
 
   /**
    * Trocar de biblioteca descarta o que era da anterior e traz o que já se sabe desta.
@@ -196,6 +179,16 @@ export function App() {
   async function updateLibrary(changes: Partial<Library>): Promise<void> {
     if (active === null) return
     await window.romorg.libraries.update(active.id, changes)
+
+    // A base de dados escolhida também vira o ponto de partida das próximas bibliotecas: cada
+    // uma continua com a sua, mas quem tem dez consoles não reconfigura os dez.
+    if (changes.useLibretro !== undefined || changes.localDatPaths !== undefined) {
+      await window.romorg.preferences.set({
+        ...(changes.useLibretro !== undefined && { useLibretro: changes.useLibretro }),
+        ...(changes.localDatPaths !== undefined && { localDatPaths: changes.localDatPaths }),
+      })
+    }
+
     await refreshLibraries()
   }
 
@@ -206,7 +199,6 @@ export function App() {
     queue.enqueue({
       libraryId: active.id,
       kind,
-      scanOptions,
       planOptions,
       selectedIds: selectedIds === null ? null : [...selectedIds],
     })
@@ -222,7 +214,7 @@ export function App() {
         setError(result.failed.map((failure) => failure.reason).join('\n'))
       }
       await refreshJournals(active.id)
-      await window.romorg.scan.start(active.id, scanOptions)
+      await window.romorg.scan.start(active.id)
       const rebuilt = await window.romorg.plan.build(active.id, planOptions)
       setScan({ libraryId: active.id, rows: rebuilt.rows, failures: [] })
       setPlan(rebuilt.plan)
@@ -298,10 +290,8 @@ export function App() {
               <label className="flex items-center gap-2 text-sm text-neutral-300">
                 <input
                   type="checkbox"
-                  checked={useLibretro}
-                  onChange={(event) =>
-                    void updatePreferences({ useLibretro: event.target.checked })
-                  }
+                  checked={active.useLibretro ?? true}
+                  onChange={(event) => void updateLibrary({ useLibretro: event.target.checked })}
                 />
                 {t.useLibretro}
               </label>
@@ -310,21 +300,22 @@ export function App() {
                 type="button"
                 onClick={() =>
                   void window.romorg.dats.chooseLocal().then((paths) => {
-                    if (paths.length > 0) {
-                      void updatePreferences({ localDatPaths: [...localDatPaths, ...paths] })
-                    }
+                    if (paths.length === 0) return
+                    void updateLibrary({
+                      localDatPaths: [...(active.localDatPaths ?? []), ...paths],
+                    })
                   })
                 }
                 className="rounded-md border border-neutral-700 px-3 py-2 text-sm"
               >
                 {t.chooseLocalDats}
               </button>
-              {localDatPaths.length > 0 && (
+              {(active.localDatPaths ?? []).length > 0 && (
                 <span className="flex items-center gap-2 text-xs text-neutral-500">
-                  {t.localDatsCount(localDatPaths.length)}
+                  {t.localDatsCount((active.localDatPaths ?? []).length)}
                   <button
                     type="button"
-                    onClick={() => void updatePreferences({ localDatPaths: [] })}
+                    onClick={() => void updateLibrary({ localDatPaths: [] })}
                     className="text-neutral-500 hover:text-red-400"
                   >
                     {t.clearLocalDats}

@@ -44,10 +44,8 @@ const api = {
   },
 
   scan: {
-    start: (
-      libraryId: string,
-      options: { useLibretro: boolean; localDatPaths: string[] },
-    ): Promise<ScanSummaryDto> => ipcRenderer.invoke('scan:start', libraryId, options),
+    start: (libraryId: string): Promise<ScanSummaryDto> =>
+      ipcRenderer.invoke('scan:start', libraryId),
     cancel: (libraryId: string): Promise<void> => ipcRenderer.invoke('scan:cancel', libraryId),
     /** Último resultado da biblioteca, da memória ou do disco. `null` se nunca houve. */
     restore: (libraryId: string): Promise<ScanSummaryDto | null> =>

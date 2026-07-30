@@ -15,16 +15,25 @@ export interface Library {
   template?: string
   /** Pasta de quarentena, relativa à raiz. Vazio ou ausente desliga o recurso. */
   quarantineDirectory?: string
+  /**
+   * Base de dados desta biblioteca.
+   *
+   * Por biblioteca, não global: um console pode depender do libretro-database enquanto outro
+   * usa um DAT local que o usuário mantém à mão. O valor guardado em `Preferences` serve
+   * apenas de ponto de partida para bibliotecas novas.
+   */
+  useLibretro?: boolean
+  localDatPaths?: string[]
 }
 
 /** Campos editáveis de uma biblioteca. */
 export type LibraryChanges = Partial<Omit<Library, 'id'>>
 
 /**
- * Preferências que valem para o app inteiro, não por biblioteca.
+ * Valores iniciais para bibliotecas novas.
  *
- * Qual base de dados usar é decisão do usuário, não da pasta: reconfigurar isso a cada
- * biblioteca aberta seria repetir a mesma resposta indefinidamente.
+ * Cada biblioteca guarda a própria configuração; isto aqui é só o padrão de partida, para
+ * quem tem uma dezena de consoles não reconfigurar cada um do zero.
  */
 export interface Preferences {
   useLibretro: boolean
@@ -104,11 +113,14 @@ export class LibraryStore {
     if (existing !== undefined) return existing
 
     const inherited = data.systemTemplates?.[systemId]
+    const defaults = { ...DEFAULT_PREFERENCES, ...data.preferences }
     const library: Library = {
       id: randomUUID(),
       systemId,
       directory,
       recursive,
+      useLibretro: defaults.useLibretro,
+      localDatPaths: defaults.localDatPaths,
       ...(inherited !== undefined && { template: inherited }),
     }
     await this.save({ ...data, libraries: [...data.libraries, library] })

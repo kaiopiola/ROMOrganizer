@@ -217,71 +217,85 @@ export function registerIpc(
     await shell.openPath(library.directory)
   })
 
-  ipcMain.handle(
-    'scan:start',
-    async (
-      event,
-      libraryId: string,
-      options: { useLibretro: boolean; localDatPaths: string[] },
-    ) => {
-      const library = await requireLibrary(libraryId)
-      const system = registry.get(library.systemId)
-      if (system === undefined) throw new Error(`sistema desconhecido: ${library.systemId}`)
+  /** A base de dados vem da própria biblioteca — o renderer não a envia. */
+  function datSourcesOf(library: Library): { useLibretro: boolean; localDatPaths: string[] } {
+    return {
+      useLibretro: library.useLibretro ?? true,
+      localDatPaths: library.localDatPaths ?? [],
+    }
+  }
 
-      const state = stateOf(libraryId)
-      state.scanController?.abort()
-      const controller = new AbortController()
-      state.scanController = controller
+  async function buildIndexFor(library: Library): Promise<DatIndex> {
+    const system = registry.get(library.systemId)
+    if (system === undefined) throw new Error(`sistema desconhecido: ${library.systemId}`)
 
-      const index = new DatIndex()
-      const cachePath = hashCachePathFor(library)
-      const hashCache = await HashCache.load(cachePath)
-
-      try {
-        if (options.useLibretro) {
-          for (const dat of await datCache.getFor(system)) index.importDat(dat)
-        }
-        for (const path of options.localDatPaths) {
-          index.importDat(await loadLocalDat(path))
-        }
-
-        const summary = await scanDirectory(library.directory, system, index, {
-          recursive: library.recursive,
-          hashCache,
-          signal: controller.signal,
-          onProgress: (done, total, current) => {
-            const progress: ScanProgress = {
-              libraryId,
-              done,
-              total,
-              currentFile: current.fileName,
-            }
-            event.sender.send('scan:progress', progress)
-          },
-        })
-
-        state.identifications = new Map(
-          summary.results.map((identification) => [rowIdOf(identification), identification]),
-        )
-        state.order = summary.results.map(rowIdOf)
-
-        // Cada rename cria uma chave nova; sem podar, o cache cresceria a cada aplicação.
-        hashCache.retainOnly(summary.results.map((identification) => identification.filePath))
-        await hashCache.save(cachePath)
-        await ScanSnapshot.save(scanSnapshotPathFor(library), summary.results)
-
-        const dto: ScanSummaryDto = {
-          libraryId,
-          rows: summary.results.map(toRow),
-          failures: summary.failures,
-        }
-        return dto
-      } finally {
-        index.close()
-        if (state.scanController === controller) state.scanController = null
+    const sources = datSourcesOf(library)
+    const index = new DatIndex()
+    try {
+      if (sources.useLibretro) {
+        for (const dat of await datCache.getFor(system)) index.importDat(dat)
       }
-    },
-  )
+      for (const path of sources.localDatPaths) {
+        index.importDat(await loadLocalDat(path))
+      }
+      return index
+    } catch (cause) {
+      index.close()
+      throw cause
+    }
+  }
+
+  ipcMain.handle('scan:start', async (event, libraryId: string) => {
+    const library = await requireLibrary(libraryId)
+    const system = registry.get(library.systemId)
+    if (system === undefined) throw new Error(`sistema desconhecido: ${library.systemId}`)
+
+    const state = stateOf(libraryId)
+    state.scanController?.abort()
+    const controller = new AbortController()
+    state.scanController = controller
+
+    const index = await buildIndexFor(library)
+    const cachePath = hashCachePathFor(library)
+    const hashCache = await HashCache.load(cachePath)
+
+    try {
+      const summary = await scanDirectory(library.directory, system, index, {
+        recursive: library.recursive,
+        hashCache,
+        signal: controller.signal,
+        onProgress: (done, total, current) => {
+          const progress: ScanProgress = {
+            libraryId,
+            done,
+            total,
+            currentFile: current.fileName,
+          }
+          event.sender.send('scan:progress', progress)
+        },
+      })
+
+      state.identifications = new Map(
+        summary.results.map((identification) => [rowIdOf(identification), identification]),
+      )
+      state.order = summary.results.map(rowIdOf)
+
+      // Cada rename cria uma chave nova; sem podar, o cache cresceria a cada aplicação.
+      hashCache.retainOnly(summary.results.map((identification) => identification.filePath))
+      await hashCache.save(cachePath)
+      await ScanSnapshot.save(scanSnapshotPathFor(library), summary.results)
+
+      const dto: ScanSummaryDto = {
+        libraryId,
+        rows: summary.results.map(toRow),
+        failures: summary.failures,
+      }
+      return dto
+    } finally {
+      index.close()
+      if (state.scanController === controller) state.scanController = null
+    }
+  })
 
   ipcMain.handle('scan:cancel', (_event, libraryId: string) => {
     stateOf(libraryId).scanController?.abort()
@@ -448,17 +462,9 @@ export function registerIpc(
       if (system === undefined) throw new Error(`sistema desconhecido: ${library.systemId}`)
 
       const identifications = identificationsOf(stateOf(libraryId))
-      const preferences = await libraries.preferences()
+      const index = await buildIndexFor(library)
 
-      const index = new DatIndex()
       try {
-        if (preferences.useLibretro) {
-          for (const dat of await datCache.getFor(system)) index.importDat(dat)
-        }
-        for (const path of preferences.localDatPaths) {
-          index.importDat(await loadLocalDat(path))
-        }
-
         const report = auditCollection(identifications, index, {
           regions: options.regions,
           includeUnreleased: options.includeUnreleased,

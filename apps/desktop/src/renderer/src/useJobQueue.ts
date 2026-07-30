@@ -18,7 +18,6 @@ export interface Job {
 export interface JobRequest {
   libraryId: string
   kind: JobKind
-  scanOptions: { useLibretro: boolean; localDatPaths: string[] }
   planOptions: PlanOptionsDto
   selectedIds: string[] | null
 }
@@ -103,7 +102,7 @@ export function useJobQueue(onFinished: (outcome: JobOutcome) => Promise<void> |
 
         try {
           if (request.kind === 'scan') {
-            await window.romorg.scan.start(request.libraryId, request.scanOptions)
+            await window.romorg.scan.start(request.libraryId)
             update(id, { status: 'done' })
             await finishedHandler.current({ libraryId: request.libraryId, kind: 'scan' })
           } else {
