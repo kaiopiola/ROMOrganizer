@@ -14,6 +14,7 @@ import { ScanTable } from './components/ScanTable.tsx'
 import { PlanPanel } from './components/PlanPanel.tsx'
 import { HistoryPanel } from './components/HistoryPanel.tsx'
 import { AuditPanel } from './components/AuditPanel.tsx'
+import { PlaylistPanel } from './components/PlaylistPanel.tsx'
 import { QueueBar } from './components/QueueBar.tsx'
 import { QueueScreen } from './components/QueueScreen.tsx'
 import { TemplateEditor } from './components/TemplateEditor.tsx'
@@ -358,6 +359,8 @@ export function App() {
                 onApply={() => enqueue('apply')}
               />
             )}
+
+            <PlaylistPanel libraryId={active.id} onNotice={setNotice} onError={setError} />
 
             <AuditPanel
               libraryId={active.id}

@@ -9,6 +9,7 @@ import type {
   JournalSummary,
   PlanOptionsDto,
   PlanResultDto,
+  PlaylistPlanDto,
   ScanProgress,
   ScanSummaryDto,
   UndoResultDto,
@@ -81,6 +82,16 @@ const api = {
       report: AuditReportDto,
       format: 'csv' | 'markdown',
     ): Promise<string | null> => ipcRenderer.invoke('audit:export', libraryId, report, format),
+  },
+
+  playlists: {
+    preview: (libraryId: string): Promise<PlaylistPlanDto> =>
+      ipcRenderer.invoke('playlists:preview', libraryId),
+    write: (
+      libraryId: string,
+      options: { m3u: boolean; lpl: boolean; overwrite: boolean },
+    ): Promise<{ written: string[]; skipped: string[] }> =>
+      ipcRenderer.invoke('playlists:write', libraryId, options),
   },
 
   journals: {

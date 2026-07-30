@@ -11,7 +11,8 @@ guessing from the filename.
 
 ## Status
 
-Under development — **Phase 0 (foundation)** is done. There is no usable release yet.
+Under development. Identification, renaming with undo, collection audit and RetroArch
+playlists all work. There is no packaged release yet — build from source for now.
 
 ## How it works
 

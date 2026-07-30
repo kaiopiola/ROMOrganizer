@@ -104,6 +104,24 @@ const ptBR = {
   skipCollision: 'já existe um arquivo com esse nome',
   skipDuplicateTarget: 'dois arquivos apontam para o mesmo nome',
 
+  playlistsTitle: 'Playlists',
+  playlistsHint: 'Playlist do RetroArch e agrupamento de jogos em vários discos.',
+  playlistsCheck: 'Ver o que seria criado',
+  playlistsChecking: 'Verificando…',
+  playlistsEmpty: 'Identifique a pasta para ver as playlists possíveis.',
+  playlistsGenerate: 'Gerar',
+  playlistsM3u: 'Agrupamento de discos (.m3u)',
+  playlistsExists: 'já existe',
+  playlistsItems: (count: number) => `${count} jogo${count === 1 ? '' : 's'}`,
+  playlistsGroups: (count: number) => `${count} grupo${count === 1 ? '' : 's'}`,
+  playlistsDiscs: (count: number) => `${count} discos`,
+  playlistsOverwrite: (count: number) =>
+    `Substituir ${count} arquivo${count === 1 ? '' : 's'} que já existe${count === 1 ? '' : 'm'}`,
+  playlistsWritten: (written: number, skipped: number) =>
+    skipped === 0
+      ? `${written} arquivo${written === 1 ? '' : 's'} gerado${written === 1 ? '' : 's'}`
+      : `${written} gerado(s), ${skipped} mantido(s) por já existir`,
+
   auditTitle: 'Auditoria',
   auditHint: 'O que a coleção tem e o que falta, em relação ao DAT.',
   auditRun: 'Auditar',
@@ -230,6 +248,24 @@ const en: Dictionary = {
   skipAmbiguous: 'DATs disagree',
   skipCollision: 'a file with that name already exists',
   skipDuplicateTarget: 'two files map to the same name',
+
+  playlistsTitle: 'Playlists',
+  playlistsHint: 'RetroArch playlist and grouping of multi-disc games.',
+  playlistsCheck: 'Preview',
+  playlistsChecking: 'Checking…',
+  playlistsEmpty: 'Identify the folder to see the possible playlists.',
+  playlistsGenerate: 'Generate',
+  playlistsM3u: 'Disc grouping (.m3u)',
+  playlistsExists: 'already exists',
+  playlistsItems: (count: number) => `${count} game${count === 1 ? '' : 's'}`,
+  playlistsGroups: (count: number) => `${count} group${count === 1 ? '' : 's'}`,
+  playlistsDiscs: (count: number) => `${count} discs`,
+  playlistsOverwrite: (count: number) =>
+    `Overwrite ${count} existing file${count === 1 ? '' : 's'}`,
+  playlistsWritten: (written: number, skipped: number) =>
+    skipped === 0
+      ? `${written} file${written === 1 ? '' : 's'} generated`
+      : `${written} generated, ${skipped} kept because they already exist`,
 
   auditTitle: 'Audit',
   auditHint: 'What the collection has and what is missing, against the DAT.',

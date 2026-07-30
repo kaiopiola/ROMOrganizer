@@ -78,6 +78,23 @@ export {
 export { auditToCsv, auditToMarkdown } from './audit/export.ts'
 
 export {
+  buildM3u,
+  detectDiscGroups,
+  m3uNameFor,
+  parseDiscName,
+  type DiscGroup,
+  type ParsedDiscName,
+} from './playlist/disc-groups.ts'
+export {
+  buildLpl,
+  lplNameFor,
+  serializeLpl,
+  type Lpl,
+  type LplItem,
+  type LplOptions,
+} from './playlist/lpl.ts'
+
+export {
   isCaseOnlyRename,
   planRenames,
   type PlannedOperation,

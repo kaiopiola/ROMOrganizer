@@ -1,4 +1,4 @@
-import { readdir, writeFile } from 'node:fs/promises'
+import { access, readdir, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import type { IpcMainInvokeEvent } from 'electron'
@@ -6,14 +6,20 @@ import {
   auditCollection,
   auditToCsv,
   auditToMarkdown,
+  buildLpl,
+  buildM3u,
   DatIndex,
+  detectDiscGroups,
   executePlan,
   HashCache,
+  lplNameFor,
+  m3uNameFor,
   planRenames,
   readJournal,
   regionsIn,
   reproposeName,
   scanDirectory,
+  serializeLpl,
   undoFromJournal,
   type Identification,
   type SystemRegistry,
@@ -40,11 +46,21 @@ import type {
   PlanDto,
   PlanOptionsDto,
   PlanResultDto,
+  PlaylistPlanDto,
   ScanProgress,
   ScanRow,
   ScanSummaryDto,
   UndoResultDto,
 } from './ipc-types.ts'
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path)
+    return true
+  } catch {
+    return false
+  }
+}
 
 /**
  * Estado vivo de uma biblioteca entre o scan e a aplicação.
@@ -532,6 +548,94 @@ export function registerIpc(
 
       await writeFile(result.filePath, content, 'utf8')
       return result.filePath
+    },
+  )
+
+  /**
+   * O que a geração de playlists produziria. Não escreve nada.
+   *
+   * Mesmo critério do rename: o usuário vê o que vai acontecer antes de acontecer. Aqui o risco
+   * é menor — criar arquivo não apaga nada — mas sobrescrever uma playlist que ele editou à mão
+   * seria perda igual.
+   */
+  ipcMain.handle(
+    'playlists:preview',
+    async (_event, libraryId: string): Promise<PlaylistPlanDto> => {
+      const library = await requireLibrary(libraryId)
+      const system = registry.get(library.systemId)
+      if (system === undefined) throw new Error(`sistema desconhecido: ${library.systemId}`)
+
+      const identifications = identificationsOf(stateOf(libraryId))
+      const groups = detectDiscGroups(identifications)
+      const playlist = buildLpl(identifications, system)
+
+      const m3uFiles = await Promise.all(
+        groups.map(async (group) => {
+          const fileName = m3uNameFor(group)
+          return {
+            fileName,
+            discs: group.discs.map((disc) => disc.fileName),
+            exists: await fileExists(join(library.directory, fileName)),
+          }
+        }),
+      )
+
+      const lplName = lplNameFor(system)
+      return {
+        m3u: m3uFiles,
+        lpl: {
+          fileName: lplName,
+          items: playlist.items.length,
+          exists: await fileExists(join(library.directory, lplName)),
+        },
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'playlists:write',
+    async (
+      _event,
+      libraryId: string,
+      options: { m3u: boolean; lpl: boolean; overwrite: boolean },
+    ): Promise<{ written: string[]; skipped: string[] }> => {
+      const library = await requireLibrary(libraryId)
+      const system = registry.get(library.systemId)
+      if (system === undefined) throw new Error(`sistema desconhecido: ${library.systemId}`)
+
+      const identifications = identificationsOf(stateOf(libraryId))
+      const written: string[] = []
+      const skipped: string[] = []
+
+      async function write(fileName: string, content: string): Promise<void> {
+        const target = join(library.directory, fileName)
+        if (!options.overwrite && (await fileExists(target))) {
+          skipped.push(fileName)
+          return
+        }
+        await writeFile(target, content, 'utf8')
+        written.push(fileName)
+      }
+
+      if (options.m3u) {
+        for (const group of detectDiscGroups(identifications)) {
+          await write(m3uNameFor(group), buildM3u(group))
+        }
+      }
+
+      if (options.lpl) {
+        await write(
+          lplNameFor(system),
+          serializeLpl(
+            buildLpl(identifications, system, {
+              discGroups: detectDiscGroups(identifications),
+              directory: library.directory,
+            }),
+          ),
+        )
+      }
+
+      return { written, skipped }
     },
   )
 

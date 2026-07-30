@@ -129,6 +129,11 @@ export interface AuditReportDto {
   availableRegions: string[]
 }
 
+export interface PlaylistPlanDto {
+  m3u: { fileName: string; discs: string[]; exists: boolean }[]
+  lpl: { fileName: string; items: number; exists: boolean }
+}
+
 export interface ScanProgress {
   libraryId: string
   done: number

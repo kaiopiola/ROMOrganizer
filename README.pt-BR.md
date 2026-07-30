@@ -11,7 +11,8 @@ pelo nome do arquivo.
 
 ## Estado
 
-Em desenvolvimento — **Fase 0 (fundação)** concluída. Ainda não há release utilizável.
+Em desenvolvimento. Identificação, renomeação com desfazer, auditoria da coleção e playlists
+do RetroArch já funcionam. Ainda não há release empacotada — por ora, rode a partir do código.
 
 ## Como funciona
 
