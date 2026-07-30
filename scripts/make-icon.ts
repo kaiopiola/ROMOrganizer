@@ -25,48 +25,7 @@ const SUPERSAMPLE = 4
  */
 const STROKE = 0.034
 
-interface Point {
-  x: number
-  y: number
-}
-
-/**
- * Distância assinada até um polígono. Negativa dentro da forma.
- *
- * Necessária porque o cartucho tem cantos chanfrados e reentrâncias laterais, e um retângulo
- * arredondado não descreve isso — em line art o traço precisa seguir a silhueta exata.
- */
-function polygonDistance(px: number, py: number, vertices: readonly Point[]): number {
-  const first = vertices[0] as Point
-  let squared = (px - first.x) ** 2 + (py - first.y) ** 2
-  let sign = 1
-
-  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i, i += 1) {
-    const current = vertices[i] as Point
-    const previous = vertices[j] as Point
-
-    const edgeX = previous.x - current.x
-    const edgeY = previous.y - current.y
-    const toPointX = px - current.x
-    const toPointY = py - current.y
-
-    const projection = Math.min(
-      Math.max((toPointX * edgeX + toPointY * edgeY) / (edgeX * edgeX + edgeY * edgeY), 0),
-      1,
-    )
-    const offsetX = toPointX - edgeX * projection
-    const offsetY = toPointY - edgeY * projection
-    squared = Math.min(squared, offsetX * offsetX + offsetY * offsetY)
-
-    // Winding number: as três condições juntas decidem se o ponto está dentro.
-    const conditions = [py >= current.y, py < previous.y, edgeX * toPointY > edgeY * toPointX]
-    if (conditions.every(Boolean) || conditions.every((value) => !value)) sign = -sign
-  }
-
-  return sign * Math.sqrt(squared)
-}
-
-/** Distância assinada até um retângulo de cantos arredondados. */
+/** Distância assinada até um retângulo de cantos arredondados. Negativa dentro da forma. */
 function roundedRectDistance(
   x: number,
   y: number,
@@ -81,27 +40,10 @@ function roundedRectDistance(
   return Math.hypot(Math.max(dx, 0), Math.max(dy, 0)) + Math.min(Math.max(dx, dy), 0) - radius
 }
 
-const LEFT = 0.16
-const RIGHT = 0.84
-const TOP = 0.14
-const BOTTOM = 0.86
-const CHAMFER = 0.055
-
-/**
- * Silhueta do cartucho: um retângulo alto com os cantos de cima cortados.
- *
- * O corte é a única quebra da forma. Uma versão anterior tinha também a reentrância lateral do
- * cartucho de SNES, mas ela deixava o topo mais largo que o corpo e a leitura em tamanho pequeno
- * virava cabeça e ombros — o contrário do que um ícone precisa fazer.
- */
-const CARTRIDGE: readonly Point[] = [
-  { x: LEFT + CHAMFER, y: TOP },
-  { x: RIGHT - CHAMFER, y: TOP },
-  { x: RIGHT, y: TOP + CHAMFER },
-  { x: RIGHT, y: BOTTOM },
-  { x: LEFT, y: BOTTOM },
-  { x: LEFT, y: TOP + CHAMFER },
-]
+const LEFT = 0.17
+const RIGHT = 0.83
+const TOP = 0.13
+const BOTTOM = 0.87
 
 /** Cor da placa de fundo. */
 const PLATE = { r: 22, g: 24, b: 26 }
@@ -114,18 +56,29 @@ const PLATE = { r: 22, g: 24, b: 26 }
 function inkAt(u: number, v: number): boolean {
   const half = STROKE / 2
 
-  if (Math.abs(polygonDistance(u, v, CARTRIDGE)) < half) return true
+  // Corpo: retângulo de cantos levemente arredondados.
+  const body = roundedRectDistance(
+    u,
+    v,
+    (LEFT + RIGHT) / 2,
+    (TOP + BOTTOM) / 2,
+    (RIGHT - LEFT) / 2,
+    (BOTTOM - TOP) / 2,
+    0.04,
+  )
+  if (Math.abs(body) < half) return true
 
-  // Etiqueta: larga e na metade de cima, como na peça real.
-  if (Math.abs(roundedRectDistance(u, v, 0.5, 0.38, 0.23, 0.14, 0.02)) < half) return true
-
-  // Ranhuras do conector, na base — traços verticais, que é o que elas são de fato.
-  if (v > 0.63 && v < 0.79) {
-    const period = 0.084
-    const phase = (u - 0.29) / period
-    const onStripe = Math.abs(phase - Math.round(phase)) * period < half
-    if (u > 0.28 && u < 0.72 && onStripe) return true
+  // Vincos de empunhadura, no alto — no cartucho de SNES eles ficam acima da etiqueta, e o
+  // conector fica escondido dentro da carcaça. Colocá-los embaixo dava um cartucho de Switch.
+  if (v > 0.19 && v < 0.29) {
+    const period = 0.075
+    const phase = (u - 0.28) / period
+    const onGroove = Math.abs(phase - Math.round(phase)) * period < half
+    if (u > 0.27 && u < 0.73 && onGroove) return true
   }
+
+  // Etiqueta: ocupa a maior parte da face, como na peça real.
+  if (Math.abs(roundedRectDistance(u, v, 0.5, 0.575, 0.24, 0.21, 0.02)) < half) return true
 
   return false
 }
